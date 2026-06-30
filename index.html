@@ -207,6 +207,7 @@ function SimpleDonut({ data, colors, size = 120 }) {
 //  설정
 // ════════════════════════════════════════════════════════════════
 const API_URL_KEY = "dc_api_url";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbw6U-yGtzzjqkK0hvk0qlyxpn0Rz9n3yBmOcgH822-zvZsSgCmmpB5a7yymOBxLI7Fe/exec";
 const THEME_KEY = "dc_theme";
 
 // ════════════════════════════════════════════════════════════════
@@ -303,8 +304,8 @@ function App() {
   const [theme, toggleTheme] = useTheme();
   const t = THEMES[theme];
 
-  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem(API_URL_KEY) || "");
-  const [showSetup, setShowSetup] = useState(!apiUrl);
+  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL);
+  const [showSetup, setShowSetup] = useState(false);
   const [tab, setTab] = useState("dashboard");
 
   const [data, setData] = useState(null);
