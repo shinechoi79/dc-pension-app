@@ -357,7 +357,7 @@ function App() {
 
   // ── 초기 설정 화면 ────────────────────────────────────────────
   if (showSetup || !apiUrl) {
-    return <SetupScreen theme={t} onSave={saveApiUrl} initial={apiUrl} />;
+    return <SetupScreen theme={t} onSave={saveApiUrl} initial={apiUrl} onCancel={() => setShowSetup(false)} />;
   }
 
   // 보유 종목(머니파킹/현금 제외)과 전체 계산
@@ -450,7 +450,7 @@ function App() {
 // ════════════════════════════════════════════════════════════════
 //  초기 설정 화면
 // ════════════════════════════════════════════════════════════════
-function SetupScreen({ theme: t, onSave, initial }) {
+function SetupScreen({ theme: t, onSave, initial, onCancel }) {
   const [url, setUrl] = useState(initial || "");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -470,11 +470,16 @@ function SetupScreen({ theme: t, onSave, initial }) {
 
   return (
     <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif", background: t.bg, minHeight: "100vh", color: t.text, maxWidth: 480, margin: "0 auto", padding: 24 }}>
-      <div style={{ marginTop: 40, marginBottom: 24 }}>
-        <div style={{ fontSize: 11, color: t.textMuted, letterSpacing: 2, marginBottom: 6 }}>DC 퇴직연금 관리</div>
-        <div style={{ fontSize: 24, fontWeight: 800, background: "linear-gradient(90deg,#60A5FA,#34D399)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-          초기 설정
+      <div style={{ marginTop: 40, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: 11, color: t.textMuted, letterSpacing: 2, marginBottom: 6 }}>DC 퇴직연금 관리</div>
+          <div style={{ fontSize: 24, fontWeight: 800, background: "linear-gradient(90deg,#60A5FA,#34D399)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            초기 설정
+          </div>
         </div>
+        {onCancel && initial && (
+          <button onClick={onCancel} style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, width: 34, height: 34, fontSize: 14, cursor: "pointer", color: t.text }}>✕</button>
+        )}
       </div>
 
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 14, border: `1px solid ${t.border}` }}>
