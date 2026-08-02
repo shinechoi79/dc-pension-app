@@ -257,7 +257,12 @@ async function postAction(url, action, data) {
 //  유틸
 // ════════════════════════════════════════════════════════════════
 const fmt = (n) => new Intl.NumberFormat("ko-KR").format(Math.round(Number(n) || 0));
-const fmtM = (n) => `${(Number(n || 0) / 10000).toFixed(0)}만`;
+const fmtM = (n) => {
+  const v = Number(n || 0);
+  if (v >= 100000000) return `${(v / 100000000).toFixed(2)}억`;
+  if (v >= 10000) return `${Math.round(v / 10000).toLocaleString("ko-KR")}만`;
+  return new Intl.NumberFormat("ko-KR").format(Math.round(v));
+};
 const pct = (n) => `${Number(n) >= 0 ? "+" : ""}${Number(n || 0).toFixed(2)}%`;
 const today = () => new Date().toISOString().slice(0, 10);
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#94A3B8"];
@@ -385,7 +390,7 @@ function App() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
-          <span style={{ fontSize: 12, color: (totalValue - totalCost) >= 0 ? "#34D399" : "#F87171" }}>
+          <span style={{ fontSize: 12, color: (totalValue - totalCost) >= 0 ? "#EF4444" : "#3B82F6" }}>
             {(totalValue - totalCost) >= 0 ? "▲" : "▼"} ₩{fmt(Math.abs(totalValue - totalCost))} ({pct(totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0)})
           </span>
           <span style={{ fontSize: 12, color: t.textFaint }}>총 매입 ₩{fmt(totalCost)}</span>
@@ -544,7 +549,7 @@ function Dashboard({ t, data, totalValue, totalCost }) {
           { label: "분할매수 진행", value: `${dcaDone}/${dcaTotal}회`, sub: "6개월 12회", color: "#60A5FA" },
           { label: "배당금 수령", value: `₩${fmtM(totalDividend)}`, sub: "누적", color: "#34D399" },
           { label: "총 납입원금", value: `₩${fmtM(totalCost)}`, sub: "매입기준", color: "#F59E0B" },
-          { label: "평가수익", value: pct(totalReturn), sub: `₩${fmtM(totalValue - totalCost)}`, color: totalReturn >= 0 ? "#34D399" : "#F87171" },
+          { label: "평가수익", value: pct(totalReturn), sub: `₩${fmtM(totalValue - totalCost)}`, color: totalReturn >= 0 ? "#EF4444" : "#3B82F6" },
         ].map((c, i) => (
           <div key={i} style={{ background: t.card, borderRadius: 12, padding: "14px 14px", border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 4 }}>{c.label}</div>
@@ -654,7 +659,7 @@ function Portfolio({ t, data, totalValue, apiUrl, runAction }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
               <Stat t={t} label="평가액" value={`₩${fmtM(p.eval_amount)}`} />
-              <Stat t={t} label="수익률" value={pct(ret)} color={ret >= 0 ? "#34D399" : "#F87171"} />
+              <Stat t={t} label="수익률" value={pct(ret)} color={ret >= 0 ? "#EF4444" : "#3B82F6"} />
               <Stat t={t} label="현재/목표" value={`${actualRatio.toFixed(1)}% / ${targetRatio.toFixed(0)}%`} color={Math.abs(diff) > 5 && !isParking ? "#F59E0B" : t.textSub} />
             </div>
             {Math.abs(diff) > 5 && !isParking && (
@@ -680,7 +685,7 @@ function DCA({ t, data, apiUrl, runAction }) {
   const dca = data.dca || [];
   const summary = data.summary || {};
   const totalDCA = Number(summary.dca_total) || 12;
-  const done = dca.length;
+  const done = Number(summary.dca_done) || 0;  // DC_SUMMARY의 고유 회차 수 기준
   const remaining = totalDCA - done;
   const perRound = Number(summary.dca_per_round_amount) || 0;
   const usedAmount = Number(summary.dca_used_amount) || 0;
