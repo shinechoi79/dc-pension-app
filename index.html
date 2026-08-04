@@ -291,26 +291,26 @@ function useTheme() {
 
 const THEMES = {
   dark: {
-    bg: "#0D1525",
-    bgGradient: "linear-gradient(135deg, #162040 0%, #0D1525 100%)",
-    card: "#1A2744",
-    border: "#2D3F6A",
-    text: "#F8FAFC",
-    textMuted: "#94A3B8",
-    textSub: "#CBD5E1",
-    textFaint: "#64748B",
-    inputBg: "#0D1525",
+    bg: "#080F1E",
+    bgGradient: "linear-gradient(135deg, #0F2040 0%, #080F1E 100%)",
+    card: "#1C2B4A",
+    border: "#2E4270",
+    text: "#FFFFFF",
+    textMuted: "#B0C4E0",
+    textSub: "#E2EBF8",
+    textFaint: "#6B85A8",
+    inputBg: "#0F1A30",
   },
   light: {
-    bg: "#EFF4FB",
-    bgGradient: "linear-gradient(135deg, #DBEAFE 0%, #EFF4FB 100%)",
+    bg: "#E8F0FE",
+    bgGradient: "linear-gradient(135deg, #C2D9FF 0%, #E8F0FE 100%)",
     card: "#FFFFFF",
-    border: "#BFDBFE",
-    text: "#0F172A",
-    textMuted: "#374151",
-    textSub: "#1E293B",
-    textFaint: "#64748B",
-    inputBg: "#F8FAFC",
+    border: "#7EB3FF",
+    text: "#050D1F",
+    textMuted: "#1A3260",
+    textSub: "#0F1F40",
+    textFaint: "#4A6FA0",
+    inputBg: "#F5F8FF",
   },
 };
 
@@ -403,7 +403,7 @@ function App() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>DC 퇴직연금</div>
-            <div style={{ fontSize: 26, fontWeight: 800, background: "linear-gradient(90deg, #60A5FA, #34D399)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <div style={{ fontSize: 30, fontWeight: 800, background: "linear-gradient(90deg, #60A5FA, #34D399)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               ₩{fmt(totalValue)}
             </div>
           </div>
@@ -576,7 +576,7 @@ function Dashboard({ t, data, totalValue, totalCost }) {
         ].map((c, i) => (
           <div key={i} style={{ background: t.card, borderRadius: 12, padding: "14px 14px", border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 4 }}>{c.label}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: c.color }}>{c.value}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: c.color }}>{c.value}</div>
             <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{c.sub}</div>
           </div>
         ))}
