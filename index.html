@@ -264,6 +264,18 @@ const fmtM = (n) => {
   return new Intl.NumberFormat("ko-KR").format(Math.round(v));
 };
 const pct = (n) => `${Number(n) >= 0 ? "+" : ""}${Number(n || 0).toFixed(2)}%`;
+const fmtDate = (d) => {
+  if (!d) return "-";
+  const s = String(d);
+  // ISO 포맷 (2026-08-03T15:00:00.000Z) → 2026-08-03
+  if (s.includes("T")) return s.slice(0, 10);
+  // Date 객체
+  if (s.includes("/")) {
+    const dt = new Date(d);
+    if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
+  }
+  return s.slice(0, 10);
+};
 const today = () => new Date().toISOString().slice(0, 10);
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#94A3B8"];
 
@@ -349,10 +361,10 @@ function App() {
   const runAction = useCallback(async (action, payload, successMsg) => {
     try {
       await postAction(apiUrl, action, payload);
-      showToast(successMsg || "저장되었습니다");
-      // Apps Script 반영 시간을 살짝 기다린 후 재조회
-      await new Promise(r => setTimeout(r, 800));
-      await loadAll();
+      showToast(successMsg || "저장되었습니다 (화면은 잠시 후 갱신)");
+      // POST 완료 즉시 반환 → 저장 중... 상태 즉시 해제
+      // 재조회는 백그라운드에서 2초 후 실행
+      setTimeout(() => loadAll(), 2000);
       return true;
     } catch (e) {
       showToast(e.message, "error");
@@ -393,7 +405,7 @@ function App() {
           <span style={{ fontSize: 12, color: (totalValue - totalCost) >= 0 ? "#EF4444" : "#3B82F6" }}>
             {(totalValue - totalCost) >= 0 ? "▲" : "▼"} ₩{fmt(Math.abs(totalValue - totalCost))} ({pct(totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0)})
           </span>
-          <span style={{ fontSize: 12, color: t.textFaint }}>총 매입 ₩{fmt(totalCost)}</span>
+          <span style={{ fontSize: 12, color: t.textFaint }}>투자 원금 ₩{fmt(totalCost)}</span>
         </div>
       </div>
 
@@ -540,7 +552,7 @@ function Dashboard({ t, data, totalValue, totalCost }) {
   });
   if (chartData.length) chartData[6].value = totalValue;
 
-  const pieData = portfolio.filter(p => Number(p.eval_amount) > 0).map(p => ({ name: p.name.slice(0, 8), value: Number(p.eval_amount) }));
+  const pieData = portfolio.filter(p => Number(p.eval_amount) > 0).map(p => ({ name: p.name, value: Number(p.eval_amount) }));
 
   return (
     <div style={{ padding: "16px 16px 0" }}>
@@ -548,7 +560,7 @@ function Dashboard({ t, data, totalValue, totalCost }) {
         {[
           { label: "분할매수 진행", value: `${dcaDone}/${dcaTotal}회`, sub: "6개월 12회", color: "#60A5FA" },
           { label: "배당금 수령", value: `₩${fmtM(totalDividend)}`, sub: "누적", color: "#34D399" },
-          { label: "총 납입원금", value: `₩${fmtM(totalCost)}`, sub: "매입기준", color: "#F59E0B" },
+          { label: "총 납입원금", value: `₩${fmtM(totalCost)}`, sub: "원금기준", color: "#F59E0B" },
           { label: "평가수익", value: pct(totalReturn), sub: `₩${fmtM(totalValue - totalCost)}`, color: totalReturn >= 0 ? "#EF4444" : "#3B82F6" },
         ].map((c, i) => (
           <div key={i} style={{ background: t.card, borderRadius: 12, padding: "14px 14px", border: `1px solid ${t.border}` }}>
@@ -850,7 +862,7 @@ function DCA({ t, data, apiUrl, runAction }) {
               style={inputStyle(t)}
             >
               {companyContributions.map((c, i) => (
-                <option key={i} value={i}>{c.date} · ₩{fmt(c.amount)} {c.memo ? `(${c.memo})` : ""}</option>
+                <option key={i} value={i}>{fmtDate(c.date)} · ₩{fmt(c.amount)} {c.memo ? `(${c.memo})` : ""}</option>
               ))}
             </select>
           </div>
@@ -895,6 +907,35 @@ function DCA({ t, data, apiUrl, runAction }) {
         />
       </div>
 
+      {/* ── 회차별 계획 vs 실제 서머리 ────────────────────────────── */}
+      {done > 0 && (() => {
+        const roundNums = [...new Set(dca.map(d => Number(d.round)))].sort((a,b) => a-b);
+        return (
+          <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 10 }}>회차별 계획 vs 실제</div>
+            {roundNums.map(r => {
+              const roundRows = dca.filter(d => Number(d.round) === r);
+              const actual = roundRows.reduce((s, d) => s + Number(d.amount), 0);
+              const diff = actual - perRound;
+              return (
+                <div key={r} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
+                  <span style={{ fontSize: 12, color: t.textSub, minWidth: 40 }}>{r}회차</span>
+                  <span style={{ fontSize: 11, color: t.textFaint }}>계획 ₩{fmt(perRound)}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>실제 ₩{fmt(actual)}</span>
+                  <span style={{ fontSize: 11, color: diff >= 0 ? "#EF4444" : "#3B82F6" }}>
+                    {diff >= 0 ? "+" : ""}{fmt(diff)}
+                  </span>
+                </div>
+              );
+            })}
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, padding: "6px 0" }}>
+              <span style={{ fontSize: 11, color: t.textFaint }}>합계</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>₩{fmt(usedAmount)}</span>
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>매수 내역</span>
         <button onClick={() => setAdding(true)} style={btnStyle("#3B82F6")}>+ 매수 기록</button>
@@ -933,7 +974,7 @@ function DCA({ t, data, apiUrl, runAction }) {
         <div key={d._row} style={{ background: t.card, borderRadius: 10, padding: 12, marginBottom: 8, border: `1px solid ${t.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 11, color: "#60A5FA", fontWeight: 700 }}>{d.round}회차 · {d.date}</div>
+              <div style={{ fontSize: 11, color: "#60A5FA", fontWeight: 700 }}>{d.round}회차 · {fmtDate(d.date)}</div>
               <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2, color: t.text }}>{d.name}</div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -1020,7 +1061,7 @@ function Contributions({ t, data, apiUrl, runAction }) {
         <div key={c._row} style={{ background: t.card, borderRadius: 10, padding: 12, marginBottom: 8, border: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 10, color: c.type === "회사부담금" ? "#60A5FA" : "#34D399", fontWeight: 700 }}>{c.type}</div>
-            <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{c.date} {c.memo && `· ${c.memo}`}</div>
+            <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{fmtDate(c.date)} {c.memo && `· ${c.memo}`}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 15, fontWeight: 800, color: t.text }}>₩{fmt(c.amount)}</span>
@@ -1113,7 +1154,7 @@ function Dividends({ t, data, apiUrl, runAction }) {
         <div key={d._row} style={{ background: t.card, borderRadius: 10, padding: 12, marginBottom: 8, border: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{d.name}</div>
-            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>{d.date} {d.memo && `· ${d.memo}`}</div>
+            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>{fmtDate(d.date)} {d.memo && `· ${d.memo}`}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 15, fontWeight: 800, color: "#34D399" }}>+₩{fmt(d.amount)}</span>
