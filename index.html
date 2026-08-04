@@ -545,12 +545,11 @@ function Dashboard({ t, data, totalValue, totalCost }) {
   const dcaDone = Number(summary.dca_done) || 0;
   const dcaTotal = Number(summary.dca_total) || 12;
 
-  const chartData = Array.from({ length: 7 }, (_, i) => {
-    const m = i === 6 ? "현재" : `${i + 1}월`;
-    const v = totalCost * (1 + (totalReturn / 100) * (i / 6));
-    return { month: m, value: Math.round(v) };
-  });
-  if (chartData.length) chartData[6].value = totalValue;
+  // 투자원금 vs 평가액 비교 (실제 데이터 기반)
+  const chartData = [
+    { month: "투자원금", value: Math.round(totalCost) },
+    { month: "현재평가액", value: Math.round(totalValue) },
+  ];
 
   const pieData = portfolio.filter(p => Number(p.eval_amount) > 0).map(p => ({ name: p.name, value: Number(p.eval_amount) }));
 
@@ -572,8 +571,27 @@ function Dashboard({ t, data, totalValue, totalCost }) {
       </div>
 
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12, fontWeight: 600 }}>평가액 추이</div>
-        <SimpleAreaChart data={chartData} dataKey="value" color="#3B82F6" height={140} formatY={v => `₩${fmt(v)}`} t={t} />
+        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>투자 원금 vs 현재 평가액</div>
+        {[
+          { label: "투자 원금", value: totalCost, color: "#60A5FA" },
+          { label: "현재 평가액", value: totalValue, color: totalValue >= totalCost ? "#EF4444" : "#3B82F6" },
+        ].map((item, i) => {
+          const pctW = totalCost > 0 ? Math.min((item.value / totalCost) * 100, 120) : 100;
+          return (
+            <div key={i} style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 11, color: t.textSub }}>{item.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: item.color }}>₩{fmt(item.value)}</span>
+              </div>
+              <div style={{ height: 8, background: t.inputBg, borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${Math.min(pctW, 100)}%`, background: item.color, borderRadius: 4, opacity: 0.85 }} />
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ marginTop: 8, fontSize: 11, color: totalValue >= totalCost ? "#EF4444" : "#3B82F6", fontWeight: 700, textAlign: "right" }}>
+          {totalValue >= totalCost ? "▲" : "▼"} ₩{fmt(Math.abs(totalValue - totalCost))} ({pct(totalReturn)})
+        </div>
       </div>
 
       <div style={{ background: t.card, borderRadius: 12, padding: 16, border: `1px solid ${t.border}` }}>
@@ -1115,7 +1133,19 @@ function Dividends({ t, data, apiUrl, runAction }) {
       {chartData.length > 0 && (
         <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
           <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 8 }}>월별 배당금</div>
-          <SimpleAreaChart data={chartData} dataKey="amount" color="#10B981" height={100} formatY={v => `₩${fmt(v)}`} t={t} />
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 80, padding: "0 4px" }}>
+            {chartData.map((d, i) => {
+              const maxVal = Math.max(...chartData.map(x => x.amount), 1);
+              const barH = Math.max((d.amount / maxVal) * 60, 8);
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 9, color: "#10B981", fontWeight: 600 }}>₩{fmtM(d.amount)}</span>
+                  <div style={{ width: "100%", height: barH, background: "#10B981", borderRadius: "4px 4px 0 0", opacity: 0.8 }} />
+                  <span style={{ fontSize: 9, color: t.textFaint }}>{d.month}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
