@@ -775,21 +775,38 @@ function DCA({ t, data, apiUrl, runAction }) {
   const contribTotalLeftover = contribGuideRows.reduce((s, r) => s + r.leftover, 0);
 
   const addRound = async () => {
-    const entries = realProducts.filter(p => roundForms[p.ticker]?.amount);
+    const entries = realProducts.filter(p => {
+      const f = roundForms[p.ticker];
+      return f && Number(f.units) > 0 && Number(f.unit_price) > 0;
+    });
     if (entries.length === 0) return;
     setSaving(true);
-    // 각 종목을 순서대로 저장 (no-cors POST라 응답 못 읽지만 순차 전송)
     for (const p of entries) {
       const f = roundForms[p.ticker];
+      const units = Number(f.units);
+      const unitPrice = Number(f.unit_price);
+      const amount = Math.round(units * unitPrice);
       await runAction("addDca", {
         date: roundDate,
         ticker: p.ticker,
         name: p.name,
-        amount: f.amount,
-        unit_price: f.unit_price || "",
+        amount,
+        unit_price: unitPrice,
+        units,
         memo: `${currentRound}회차`,
         round: currentRound,
-      }, null); // 개별 토스트 생략
+      }, null);
+      // 포트폴리오 보유현황도 자동 업데이트
+      const existing = (data.portfolio || []).find(port => port.ticker === p.ticker);
+      const prevUnits = Number(existing?.units) || 0;
+      const prevCost = Number(existing?.avg_cost) || 0;
+      const newUnits = prevUnits + units;
+      const newAvgCost = newUnits > 0
+        ? Math.round((prevUnits * prevCost + amount) / newUnits)
+        : unitPrice;
+      await runAction("updateHoldings", {
+        ticker: p.ticker, units: newUnits, avg_cost: newAvgCost
+      }, null);
     }
     setSaving(false);
     setAdding(false);
@@ -988,8 +1005,6 @@ function DCA({ t, data, apiUrl, runAction }) {
           {/* 종목별 매수금액 + 단가 입력 */}
           {realProducts.map((p, i) => {
             const f = roundForms[p.ticker] || {};
-            const units = f.amount && f.unit_price && Number(f.unit_price) > 0
-              ? Math.floor(Number(f.amount) / Number(f.unit_price)) : null;
             return (
               <div key={p.ticker} style={{ background: t.inputBg, borderRadius: 8, padding: 10, marginBottom: 8, border: `1px solid ${t.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
@@ -999,18 +1014,20 @@ function DCA({ t, data, apiUrl, runAction }) {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   <div>
-                    <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>매수금액 (원)</div>
-                    <input type="number" value={f.amount || ""} placeholder="0"
-                      onChange={e => setRoundField(p.ticker, "amount", e.target.value)} style={inputStyle(t)} />
+                    <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>매수 수량 (주)</div>
+                    <input type="number" value={f.units || ""} placeholder="0"
+                      onChange={e => setRoundField(p.ticker, "units", e.target.value)} style={inputStyle(t)} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>매수단가 (원)</div>
+                    <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>체결단가 (MTS 확인)</div>
                     <input type="number" value={f.unit_price || ""} placeholder={fmt(p.current_price)}
                       onChange={e => setRoundField(p.ticker, "unit_price", e.target.value)} style={inputStyle(t)} />
                   </div>
                 </div>
-                {units !== null && (
-                  <div style={{ fontSize: 10, color: "#60A5FA", marginTop: 4 }}>→ 약 {units}주</div>
+                {f.units && f.unit_price && (
+                  <div style={{ fontSize: 10, color: "#34D399", marginTop: 4 }}>
+                    → 매수금액 ₩{fmt(Math.round(Number(f.units) * Number(f.unit_price)))}
+                  </div>
                 )}
               </div>
             );
@@ -1019,7 +1036,8 @@ function DCA({ t, data, apiUrl, runAction }) {
           {/* 합계 */}
           <div style={{ padding: "8px 0", fontSize: 12, color: t.textSub, marginBottom: 10 }}>
             총 매수금액: <span style={{ color: t.text, fontWeight: 700 }}>
-              ₩{fmt(Object.values(roundForms).reduce((s, f) => s + (Number(f.amount) || 0), 0))}
+              ₩{fmt(Object.values(roundForms).reduce((s, f) =>
+                s + (f.units && f.unit_price ? Math.round(Number(f.units) * Number(f.unit_price)) : 0), 0))}
             </span>
           </div>
 
