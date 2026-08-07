@@ -319,12 +319,18 @@ const THEMES = {
 // ════════════════════════════════════════════════════════════════
 const TABS = [
   { id: "dashboard", label: "대시보드", icon: "📊" },
-  { id: "portfolio", label: "포트폴리오", icon: "🗂" },
-  { id: "dca", label: "분할매수", icon: "🔄" },
-  { id: "contributions", label: "납입내역", icon: "💳" },
-  { id: "dividends", label: "배당금", icon: "💰" },
-  { id: "pension", label: "연금", icon: "🏦" },
+  { id: "dc", label: "DC", icon: "🏢" },
+  { id: "savings", label: "연금저축", icon: "🏦" },
+  { id: "irp", label: "IRP", icon: "💼" },
   { id: "simulator", label: "시뮬레이터", icon: "🎯" },
+];
+
+// DC 탭 내부 서브탭
+const DC_SUBTABS = [
+  { id: "portfolio", label: "포트폴리오" },
+  { id: "dca", label: "분할매수" },
+  { id: "contributions", label: "납입내역" },
+  { id: "dividends", label: "배당금" },
 ];
 
 // ════════════════════════════════════════════════════════════════
@@ -337,6 +343,7 @@ function App() {
   const [apiUrl, setApiUrl] = useState(() => localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL);
   const [showSetup, setShowSetup] = useState(false);
   const [tab, setTab] = useState("dashboard");
+  const [dcSubtab, setDcSubtab] = useState("portfolio");
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -421,9 +428,9 @@ function App() {
       <div style={{ background: t.bgGradient, padding: "20px 20px 16px", borderBottom: `1px solid ${t.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontSize: 11, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>DC 퇴직연금</div>
+            <div style={{ fontSize: 11, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>전체 연금 자산</div>
             <div style={{ fontSize: 30, fontWeight: 800, background: "linear-gradient(90deg, #60A5FA, #34D399)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              ₩{fmt(totalValue)}
+              ₩{fmt(totalAllEval)}
             </div>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
@@ -433,10 +440,10 @@ function App() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
-          <span style={{ fontSize: 12, color: (totalValue - totalCost) >= 0 ? "#EF4444" : "#3B82F6" }}>
-            {(totalValue - totalCost) >= 0 ? "▲" : "▼"} ₩{fmt(Math.abs(totalValue - totalCost))} ({pct(totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0)})
+          <span style={{ fontSize: 12, color: (totalAllEval - totalAllCost) >= 0 ? "#EF4444" : "#3B82F6" }}>
+            {(totalAllEval - totalAllCost) >= 0 ? "▲" : "▼"} ₩{fmt(Math.abs(totalAllEval - totalAllCost))} ({pct(totalAllCost > 0 ? ((totalAllEval - totalAllCost) / totalAllCost) * 100 : 0)})
           </span>
-          <span style={{ fontSize: 12, color: t.textFaint }}>투자 원금 ₩{fmt(totalCost)}</span>
+          <span style={{ fontSize: 12, color: t.textFaint }}>투자 원금 ₩{fmt(totalAllCost)}</span>
         </div>
       </div>
 
@@ -458,13 +465,30 @@ function App() {
       {/* 탭 콘텐츠 */}
       {data && (
         <div style={{ padding: "0 0 20px" }}>
-          {tab === "dashboard" && <Dashboard t={t} data={data} totalValue={totalValue} totalCost={totalCost} savingsEval={savingsEval} irpEval={irpEval} totalAllEval={totalAllEval} totalAllCost={totalAllCost} />}
-          {tab === "portfolio" && <Portfolio t={t} data={data} totalValue={totalValue} apiUrl={apiUrl} runAction={runAction} />}
-          {tab === "dca" && <DCA t={t} data={data} apiUrl={apiUrl} runAction={runAction} />}
-          {tab === "contributions" && <Contributions t={t} data={data} apiUrl={apiUrl} runAction={runAction} />}
-          {tab === "dividends" && <Dividends t={t} data={data} apiUrl={apiUrl} runAction={runAction} />}
-          {tab === "pension" && <PensionAccounts t={t} data={data} apiUrl={apiUrl} runAction={runAction} showToast={showToast} />}
-          {tab === "simulator" && <Simulator t={t} data={data} totalValue={totalValue} apiUrl={apiUrl} runAction={runAction} showToast={showToast} />}
+          {tab === "dashboard" && <Dashboard t={t} data={data} totalValue={totalValue} totalCost={totalCost} savingsEval={savingsEval} irpEval={irpEval} savingsCost={savingsCost} irpCost={irpCost} totalAllEval={totalAllEval} totalAllCost={totalAllCost} setTab={setTab} />}
+          {tab === "dc" && (
+            <div>
+              {/* DC 서브탭 */}
+              <div style={{ display: "flex", gap: 6, padding: "12px 16px 0", overflowX: "auto" }}>
+                {DC_SUBTABS.map(st => (
+                  <button key={st.id} onClick={() => setDcSubtab(st.id)}
+                    style={{
+                      padding: "7px 14px", borderRadius: 20, border: "none", whiteSpace: "nowrap",
+                      background: dcSubtab === st.id ? "#3B82F6" : t.card,
+                      color: dcSubtab === st.id ? "#fff" : t.textSub,
+                      fontSize: 12, fontWeight: dcSubtab === st.id ? 700 : 500, cursor: "pointer",
+                    }}>{st.label}</button>
+                ))}
+              </div>
+              {dcSubtab === "portfolio" && <Portfolio t={t} data={data} totalValue={totalValue} apiUrl={apiUrl} runAction={runAction} />}
+              {dcSubtab === "dca" && <DCA t={t} data={data} apiUrl={apiUrl} runAction={runAction} />}
+              {dcSubtab === "contributions" && <Contributions t={t} data={data} apiUrl={apiUrl} runAction={runAction} />}
+              {dcSubtab === "dividends" && <Dividends t={t} data={data} apiUrl={apiUrl} runAction={runAction} />}
+            </div>
+          )}
+          {tab === "savings" && <PensionAccounts t={t} data={data} apiUrl={apiUrl} runAction={runAction} showToast={showToast} onlyAccount="연금저축" />}
+          {tab === "irp" && <PensionAccounts t={t} data={data} apiUrl={apiUrl} runAction={runAction} showToast={showToast} onlyAccount="개인형IRP" />}
+          {tab === "simulator" && <Simulator t={t} data={data} totalValue={totalAllEval} apiUrl={apiUrl} runAction={runAction} showToast={showToast} />}
         </div>
       )}
 
@@ -570,7 +594,7 @@ function SetupScreen({ theme: t, onSave, initial, onCancel }) {
 // ════════════════════════════════════════════════════════════════
 //  대시보드
 // ════════════════════════════════════════════════════════════════
-function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 0, totalAllEval = 0, totalAllCost = 0 }) {
+function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 0, savingsCost = 0, irpCost = 0, totalAllEval = 0, totalAllCost = 0, setTab }) {
   const { summary, portfolio, config } = data;
   const totalReturn = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
   const totalDividend = Number(summary.total_dividend) || 0;
@@ -585,28 +609,63 @@ function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 
 
   const pieData = portfolio.filter(p => Number(p.eval_amount) > 0).map(p => ({ name: p.name, value: Number(p.eval_amount) }));
 
+  // 3계좌 구성 데이터
+  const accountBreakdown = [
+    { key: "dc",      label: "DC 퇴직연금", tab: "dc",      ev: totalValue,  cost: totalCost,    color: "#3B82F6" },
+    { key: "savings", label: "연금저축",    tab: "savings", ev: savingsEval, cost: savingsCost,  color: "#8B5CF6" },
+    { key: "irp",     label: "개인형 IRP",  tab: "irp",     ev: irpEval,     cost: irpCost,      color: "#06B6D4" },
+  ].filter(a => a.ev > 0 || a.key === "dc");
+
+  const allTotal = totalAllEval || 1;
+
   return (
     <div style={{ padding: "16px 16px 0" }}>
 
-      {/* 전체 연금자산 합산 (DC + 연금저축 + IRP) */}
-      {(savingsEval > 0 || irpEval > 0) && (
-        <div style={{ background: "linear-gradient(135deg, #1E3A5F, #0F172A)", borderRadius: 12, padding: 14, marginBottom: 14 }}>
-          <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 4 }}>전체 연금자산 (DC + 연금저축 + IRP)</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#F8FAFC" }}>₩{fmt(totalAllEval)}</div>
-          <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
-            <span style={{ fontSize: 11, color: "#94A3B8" }}>DC <span style={{ color: "#60A5FA" }}>₩{fmtM(totalValue)}</span></span>
-            <span style={{ fontSize: 11, color: "#94A3B8" }}>연금저축 <span style={{ color: "#8B5CF6" }}>₩{fmtM(savingsEval)}</span></span>
-            <span style={{ fontSize: 11, color: "#94A3B8" }}>IRP <span style={{ color: "#F59E0B" }}>₩{fmtM(irpEval)}</span></span>
-          </div>
-        </div>
-      )}
+      {/* ── 계좌별 구성 ─────────────────────────────────── */}
+      <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
+        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>계좌별 구성</div>
 
+        {/* 누적 비중 바 */}
+        <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 14 }}>
+          {accountBreakdown.map(a => (
+            <div key={a.key} style={{ width: `${(a.ev / allTotal) * 100}%`, background: a.color }} />
+          ))}
+        </div>
+
+        {accountBreakdown.map(a => {
+          const ret = a.cost > 0 ? ((a.ev - a.cost) / a.cost) * 100 : 0;
+          const share = (a.ev / allTotal) * 100;
+          return (
+            <div key={a.key} onClick={() => setTab && setTab(a.tab)}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${t.border}`, cursor: "pointer" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 3, background: a.color }} />
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{a.label}</div>
+                  <div style={{ fontSize: 10, color: t.textFaint }}>{share.toFixed(1)}% · 원금 ₩{fmtM(a.cost)}</div>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: t.text }}>₩{fmt(a.ev)}</div>
+                <div style={{ fontSize: 11, color: ret >= 0 ? "#EF4444" : "#3B82F6" }}>{pct(ret)}</div>
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{ fontSize: 10, color: t.textFaint, marginTop: 10, textAlign: "center" }}>
+          계좌를 탭하면 상세 화면으로 이동합니다
+        </div>
+      </div>
+
+
+      {/* 전체 연금자산 합산 (DC + 연금저축 + IRP) */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
         {[
           { label: "분할매수 진행", value: `${dcaDone}/${dcaTotal}회`, sub: "6개월 12회", color: "#60A5FA" },
           { label: "배당금 수령", value: `₩${fmtM(totalDividend)}`, sub: "누적", color: "#34D399" },
-          { label: "총 납입원금", value: `₩${fmtM(totalCost)}`, sub: "원금기준", color: "#F59E0B" },
-          { label: "평가수익", value: pct(totalReturn), sub: `₩${fmtM(totalValue - totalCost)}`, color: totalReturn >= 0 ? "#EF4444" : "#3B82F6" },
+          { label: "DC 투자원금", value: `₩${fmtM(totalCost)}`, sub: "원금기준", color: "#F59E0B" },
+          { label: "DC 평가수익", value: pct(totalReturn), sub: `₩${fmtM(totalValue - totalCost)}`, color: totalReturn >= 0 ? "#EF4444" : "#3B82F6" },
         ].map((c, i) => (
           <div key={i} style={{ background: t.card, borderRadius: 12, padding: "14px 14px", border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 4 }}>{c.label}</div>
@@ -1308,21 +1367,27 @@ function Dividends({ t, data, apiUrl, runAction }) {
 // ════════════════════════════════════════════════════════════════
 //  연금저축 + IRP 통합 화면
 // ════════════════════════════════════════════════════════════════
-function PensionAccounts({ t, data, apiUrl, runAction, showToast }) {
+function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount }) {
   const pension = data?.pension;
   const pAccts = pension?.accounts || [];
   const rawSavings = pAccts.find(a => a.account === "연금저축");
   const rawIrp = pAccts.find(a => a.account === "개인형IRP");
   // 필드명 매핑 (monthly_deposit → monthly_contribution)
-  const savings = rawSavings ? { ...rawSavings, monthly_contribution: rawSavings.monthly_deposit } : null;
-  const irp = rawIrp ? { ...rawIrp, monthly_contribution: rawIrp.monthly_deposit } : null;
-  const contributions = pension?.deposits || [];
+  const savingsAll = rawSavings ? { ...rawSavings, monthly_contribution: rawSavings.monthly_deposit } : null;
+  const irpAll = rawIrp ? { ...rawIrp, monthly_contribution: rawIrp.monthly_deposit } : null;
+  // onlyAccount 지정 시 해당 계좌만 표시
+  const savings = (!onlyAccount || onlyAccount === "연금저축") ? savingsAll : null;
+  const irp = (!onlyAccount || onlyAccount === "개인형IRP") ? irpAll : null;
+  const allDeposits = pension?.deposits || [];
+  const contributions = onlyAccount
+    ? allDeposits.filter(d => d.account === onlyAccount)
+    : allDeposits;
 
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editAccount, setEditAccount] = useState(null);
   const [editForm, setEditForm] = useState({ units: "", avg_cost: "" });
-  const [contribForm, setContribForm] = useState({ date: today(), account: "연금저축", amount: "", memo: "" });
+  const [contribForm, setContribForm] = useState({ date: today(), account: onlyAccount || "연금저축", amount: "", memo: "" });
 
   const totalEval = (Number(savings?.eval_amount) || 0) + (Number(irp?.eval_amount) || 0);
   const totalCost = (Number(savings?.purchase_cost) || 0) + (Number(irp?.purchase_cost) || 0);
