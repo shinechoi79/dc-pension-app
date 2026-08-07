@@ -468,6 +468,21 @@ function App() {
           {tab === "dashboard" && <Dashboard t={t} data={data} totalValue={totalValue} totalCost={totalCost} savingsEval={savingsEval} irpEval={irpEval} savingsCost={savingsCost} irpCost={irpCost} totalAllEval={totalAllEval} totalAllCost={totalAllCost} setTab={setTab} />}
           {tab === "dc" && (
             <div>
+              {/* DC 요약 카드 */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "16px 16px 0" }}>
+                {[
+                  { label: "분할매수 진행", value: `${Number(data.summary.dca_done)||0}/${Number(data.summary.dca_total)||12}회`, sub: "6개월 12회", color: "#60A5FA" },
+                  { label: "배당금 수령", value: `₩${fmtM(data.summary.total_dividend)}`, sub: "누적", color: "#34D399" },
+                  { label: "DC 투자원금", value: `₩${fmtM(totalCost)}`, sub: "원금기준", color: "#F59E0B" },
+                  { label: "DC 평가수익", value: pct(totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0), sub: `₩${fmtM(totalValue - totalCost)}`, color: (totalValue - totalCost) >= 0 ? "#EF4444" : "#3B82F6" },
+                ].map((cd, i) => (
+                  <div key={i} style={{ background: t.card, borderRadius: 12, padding: 14, border: `1px solid ${t.border}` }}>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 4 }}>{cd.label}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: cd.color }}>{cd.value}</div>
+                    <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{cd.sub}</div>
+                  </div>
+                ))}
+              </div>
               {/* DC 서브탭 */}
               <div style={{ display: "flex", gap: 6, padding: "12px 16px 0", overflowX: "auto" }}>
                 {DC_SUBTABS.map(st => (
@@ -607,7 +622,12 @@ function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 
     { month: "현재평가액", value: Math.round(totalValue) },
   ];
 
-  const pieData = portfolio.filter(p => Number(p.eval_amount) > 0).map(p => ({ name: p.name, value: Number(p.eval_amount) }));
+  // 3계좌 전체 종목 통합 자산배분
+  const pensionAccts = data?.pension?.accounts || [];
+  const pieData = [
+    ...portfolio.filter(p => Number(p.eval_amount) > 0).map(p => ({ name: p.name, value: Number(p.eval_amount), acct: "DC" })),
+    ...pensionAccts.filter(a => Number(a.eval_amount) > 0).map(a => ({ name: a.name, value: Number(a.eval_amount), acct: a.account })),
+  ].sort((a, b) => b.value - a.value);
 
   // 3계좌 구성 데이터
   const accountBreakdown = [
@@ -659,29 +679,13 @@ function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 
       </div>
 
 
-      {/* 전체 연금자산 합산 (DC + 연금저축 + IRP) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-        {[
-          { label: "분할매수 진행", value: `${dcaDone}/${dcaTotal}회`, sub: "6개월 12회", color: "#60A5FA" },
-          { label: "배당금 수령", value: `₩${fmtM(totalDividend)}`, sub: "누적", color: "#34D399" },
-          { label: "DC 투자원금", value: `₩${fmtM(totalCost)}`, sub: "원금기준", color: "#F59E0B" },
-          { label: "DC 평가수익", value: pct(totalReturn), sub: `₩${fmtM(totalValue - totalCost)}`, color: totalReturn >= 0 ? "#EF4444" : "#3B82F6" },
-        ].map((c, i) => (
-          <div key={i} style={{ background: t.card, borderRadius: 12, padding: "14px 14px", border: `1px solid ${t.border}` }}>
-            <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 4 }}>{c.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: c.color }}>{c.value}</div>
-            <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{c.sub}</div>
-          </div>
-        ))}
-      </div>
-
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>투자 원금 vs 현재 평가액</div>
+        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>전체 투자원금 vs 현재 평가액</div>
         {[
-          { label: "투자 원금", value: totalCost, color: "#60A5FA" },
-          { label: "현재 평가액", value: totalValue, color: totalValue >= totalCost ? "#EF4444" : "#3B82F6" },
+          { label: "투자 원금", value: totalAllCost, color: "#60A5FA" },
+          { label: "현재 평가액", value: totalAllEval, color: totalAllEval >= totalAllCost ? "#EF4444" : "#3B82F6" },
         ].map((item, i) => {
-          const pctW = totalCost > 0 ? Math.min((item.value / totalCost) * 100, 120) : 100;
+          const pctW = totalAllCost > 0 ? Math.min((item.value / totalAllCost) * 100, 120) : 100;
           return (
             <div key={i} style={{ marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -694,13 +698,13 @@ function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 
             </div>
           );
         })}
-        <div style={{ marginTop: 8, fontSize: 11, color: totalValue >= totalCost ? "#EF4444" : "#3B82F6", fontWeight: 700, textAlign: "right" }}>
-          {totalValue >= totalCost ? "▲" : "▼"} ₩{fmt(Math.abs(totalValue - totalCost))} ({pct(totalReturn)})
+        <div style={{ marginTop: 8, fontSize: 11, color: totalAllEval >= totalAllCost ? "#EF4444" : "#3B82F6", fontWeight: 700, textAlign: "right" }}>
+          {totalAllEval >= totalAllCost ? "▲" : "▼"} ₩{fmt(Math.abs(totalAllEval - totalAllCost))} ({pct(totalAllCost > 0 ? ((totalAllEval - totalAllCost) / totalAllCost) * 100 : 0)})
         </div>
       </div>
 
       <div style={{ background: t.card, borderRadius: 12, padding: 16, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12, fontWeight: 600 }}>자산배분</div>
+        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12, fontWeight: 600 }}>전체 자산배분 (3계좌 통합)</div>
         {pieData.length === 0 ? (
           <div style={{ fontSize: 11, color: t.textFaint, textAlign: "center", padding: 20 }}>아직 매수 내역이 없어요</div>
         ) : (
@@ -712,9 +716,10 @@ function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <div style={{ width: 8, height: 8, borderRadius: 2, background: COLORS[i % COLORS.length] }} />
                     <span style={{ fontSize: 10, color: t.textSub }}>{p.name}</span>
+                    {p.acct !== "DC" && <span style={{ fontSize: 8, color: t.textFaint, background: t.inputBg, padding: "1px 4px", borderRadius: 3 }}>{p.acct}</span>}
                   </div>
                   <span style={{ fontSize: 10, color: "#60A5FA", fontWeight: 600 }}>
-                    {((p.value / totalValue) * 100).toFixed(1)}%
+                    {((p.value / (totalAllEval || 1)) * 100).toFixed(1)}%
                   </span>
                 </div>
               ))}
@@ -1388,6 +1393,23 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
   const [editAccount, setEditAccount] = useState(null);
   const [editForm, setEditForm] = useState({ units: "", avg_cost: "" });
   const [contribForm, setContribForm] = useState({ date: today(), account: onlyAccount || "연금저축", amount: "", memo: "" });
+  const [tradeAdding, setTradeAdding] = useState(false);
+  const [tradeForm, setTradeForm] = useState({ date: today(), account: onlyAccount || "연금저축", units: "", unit_price: "", memo: "" });
+  const allTrades = pension?.trades || [];
+  const trades = onlyAccount ? allTrades.filter(x => x.account === onlyAccount) : allTrades;
+
+  const addTrade = async () => {
+    if (!tradeForm.units || !tradeForm.unit_price) return;
+    setSaving(true);
+    try {
+      await postAction(apiUrl, "addPensionTrade", tradeForm);
+      showToast("매수 기록 추가됨 (보유현황 자동 반영)");
+      setTimeout(() => { window.location.reload(); }, 2000);
+    } catch(e) { showToast(e.message, "error"); }
+    setSaving(false);
+    setTradeAdding(false);
+    setTradeForm({ date: today(), account: onlyAccount || "연금저축", units: "", unit_price: "", memo: "" });
+  };
 
   const totalEval = (Number(savings?.eval_amount) || 0) + (Number(irp?.eval_amount) || 0);
   const totalCost = (Number(savings?.purchase_cost) || 0) + (Number(irp?.purchase_cost) || 0);
@@ -1500,8 +1522,79 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
       <AccountCard label="연금저축" acct={savings} color="#8B5CF6" />
       <AccountCard label="IRP" acct={irp} color="#F59E0B" />
 
-      {/* 납입 내역 */}
+      {/* 매수 내역 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>매수 내역</span>
+        <button onClick={() => setTradeAdding(true)} style={btnStyle("#7B1FA2")}>+ 매수 기록</button>
+      </div>
+
+      {tradeAdding && (
+        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid #7B1FA2" }}>
+          <div style={{ fontSize: 12, color: "#A855F7", fontWeight: 700, marginBottom: 10 }}>매수 기록 추가</div>
+          {!onlyAccount && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>계좌 구분</div>
+              <select value={tradeForm.account} onChange={e => setTradeForm(p => ({ ...p, account: e.target.value }))} style={inputStyle(t)}>
+                <option>연금저축</option>
+                <option>개인형IRP</option>
+              </select>
+            </div>
+          )}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>매수일</div>
+            <input type="date" value={tradeForm.date} onChange={e => setTradeForm(p => ({ ...p, date: e.target.value }))} style={inputStyle(t)} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>매수 수량 (주)</div>
+              <input type="number" value={tradeForm.units} placeholder="0"
+                onChange={e => setTradeForm(p => ({ ...p, units: e.target.value }))} style={inputStyle(t)} />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>체결단가 (원)</div>
+              <input type="number" value={tradeForm.unit_price} placeholder="0"
+                onChange={e => setTradeForm(p => ({ ...p, unit_price: e.target.value }))} style={inputStyle(t)} />
+            </div>
+          </div>
+          {tradeForm.units && tradeForm.unit_price && (
+            <div style={{ fontSize: 11, color: "#34D399", marginBottom: 8 }}>
+              → 매수금액 ₩{fmt(Math.round(Number(tradeForm.units) * Number(tradeForm.unit_price)))}
+            </div>
+          )}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>메모</div>
+            <input type="text" value={tradeForm.memo} onChange={e => setTradeForm(p => ({ ...p, memo: e.target.value }))} style={inputStyle(t)} />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={addTrade} disabled={saving} style={btnStyle("#10B981")}>{saving ? "저장 중..." : "저장"}</button>
+            <button onClick={() => setTradeAdding(false)} style={btnStyle("#475569")}>취소</button>
+          </div>
+        </div>
+      )}
+
+      {trades.length === 0 && !tradeAdding && (
+        <div style={{ background: t.card, borderRadius: 10, padding: 16, marginBottom: 14, border: `1px solid ${t.border}`, textAlign: "center", fontSize: 11, color: t.textFaint }}>
+          아직 매수 기록이 없어요
+        </div>
+      )}
+
+      {[...trades].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 20).map((tr, i) => (
+        <div key={i} style={{ background: t.card, borderRadius: 10, padding: 12, marginBottom: 8, border: `1px solid ${t.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#A855F7", fontWeight: 700 }}>{tr.account}</div>
+              <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{fmtDate(tr.date)} {tr.memo && `· ${tr.memo}`}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: t.text }}>₩{fmt(tr.amount)}</div>
+              <div style={{ fontSize: 10, color: t.textFaint }}>{fmt(tr.unit_price)}원 × {Math.round(Number(tr.units))}주</div>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* 납입 내역 */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, marginTop: 20 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>납입 내역</span>
         <button onClick={() => setAdding(true)} style={btnStyle("#8B5CF6")}>+ 납입 기록</button>
       </div>
