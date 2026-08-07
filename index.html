@@ -1370,7 +1370,7 @@ function Dividends({ t, data, apiUrl, runAction }) {
 
 
 // ════════════════════════════════════════════════════════════════
-//  연금저축 + IRP 통합 화면
+//  연금저축 / IRP 계좌 화면 (onlyAccount로 단일 계좌 표시)
 // ════════════════════════════════════════════════════════════════
 function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount }) {
   const pension = data?.pension;
@@ -1490,9 +1490,6 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
         <div style={{ marginTop: 8, fontSize: 11, color: ret >= 0 ? "#EF4444" : "#3B82F6", fontWeight: 700 }}>
           평가손익 {ret >= 0 ? "+" : ""}₩{fmt(acct.profit_amount)}
         </div>
-        <div style={{ marginTop: 6, fontSize: 10, color: t.textFaint }}>
-          월 납입 ₩{fmt(acct.monthly_contribution)}
-        </div>
       </div>
     );
   };
@@ -1501,7 +1498,7 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
     <div style={{ padding: 16 }}>
       {/* 합산 요약 */}
       <div style={{ background: "linear-gradient(135deg, #1E3A5F, #0F172A)", borderRadius: 12, padding: 16, marginBottom: 14 }}>
-        <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>연금저축 + IRP 합산</div>
+        <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>{onlyAccount || "연금저축 + IRP 합산"}</div>
         <div style={{ fontSize: 24, fontWeight: 800, color: "#F8FAFC" }}>₩{fmt(totalEval)}</div>
         <div style={{ fontSize: 12, color: totalProfit >= 0 ? "#EF4444" : "#3B82F6", marginTop: 4 }}>
           {totalProfit >= 0 ? "▲" : "▼"} ₩{fmt(Math.abs(totalProfit))} ({pct(totalReturn)})
@@ -1512,7 +1509,7 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
             <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC" }}>₩{fmtM(totalCost)}</div>
           </div>
           <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 8, padding: 8 }}>
-            <div style={{ fontSize: 9, color: "#94A3B8" }}>월 납입 합계</div>
+            <div style={{ fontSize: 9, color: "#94A3B8" }}>{onlyAccount ? "월 납입" : "월 납입 합계"}</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#60A5FA" }}>₩{fmt(monthlyTotal)}</div>
           </div>
         </div>
