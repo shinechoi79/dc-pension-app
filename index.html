@@ -458,7 +458,7 @@ function App() {
       {/* 탭 콘텐츠 */}
       {data && (
         <div style={{ padding: "0 0 20px" }}>
-          {tab === "dashboard" && <Dashboard t={t} data={data} totalValue={totalValue} totalCost={totalCost} />}
+          {tab === "dashboard" && <Dashboard t={t} data={data} totalValue={totalValue} totalCost={totalCost} savingsEval={savingsEval} irpEval={irpEval} totalAllEval={totalAllEval} totalAllCost={totalAllCost} />}
           {tab === "portfolio" && <Portfolio t={t} data={data} totalValue={totalValue} apiUrl={apiUrl} runAction={runAction} />}
           {tab === "dca" && <DCA t={t} data={data} apiUrl={apiUrl} runAction={runAction} />}
           {tab === "contributions" && <Contributions t={t} data={data} apiUrl={apiUrl} runAction={runAction} />}
@@ -570,7 +570,7 @@ function SetupScreen({ theme: t, onSave, initial, onCancel }) {
 // ════════════════════════════════════════════════════════════════
 //  대시보드
 // ════════════════════════════════════════════════════════════════
-function Dashboard({ t, data, totalValue, totalCost }) {
+function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 0, totalAllEval = 0, totalAllCost = 0 }) {
   const { summary, portfolio, config } = data;
   const totalReturn = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
   const totalDividend = Number(summary.total_dividend) || 0;
