@@ -1547,8 +1547,19 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
       {/* 세액공제 환급 예상 */}
       {(() => {
         const ps = pension?.summary || {};
-        const savingYtd = Number(ps.saving_deposit_ytd) || 0;
-        const irpYtd = Number(ps.irp_deposit_ytd) || 0;
+        const thisYear = new Date().getFullYear();
+        // 올해 납입액 = 별도 납입기록 + 매수금액 (자동이체 후 즉시 매수 패턴)
+        const ytdOf = (acctName) => {
+          const dep = allDeposits
+            .filter(d => d.account === acctName && new Date(fmtDate(d.date)).getFullYear() === thisYear)
+            .reduce((s, d) => s + (Number(d.amount) || 0), 0);
+          const tr = allTrades
+            .filter(x => x.account === acctName && new Date(fmtDate(x.date)).getFullYear() === thisYear)
+            .reduce((s, x) => s + (Number(x.amount) || 0), 0);
+          return dep + tr;
+        };
+        const savingYtd = ytdOf("연금저축");
+        const irpYtd = ytdOf("개인형IRP");
         const usedYtd = onlyAccount === "연금저축" ? savingYtd
                       : onlyAccount === "개인형IRP" ? irpYtd
                       : savingYtd + irpYtd;
@@ -1599,6 +1610,9 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
                 💡 연말까지 ₩{fmt(remain)} 더 납입하면 ₩{fmt(Math.round(remain * rate))} 추가 환급
               </div>
             )}
+            <div style={{ marginTop: 6, fontSize: 9, color: t.textFaint }}>
+              ※ 매수 기록 금액을 납입액으로 집계합니다 ({thisYear}년 기준)
+            </div>
           </div>
         );
       })()}
