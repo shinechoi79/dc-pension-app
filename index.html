@@ -1422,7 +1422,12 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
   const [editForm, setEditForm] = useState({ units: "", avg_cost: "" });
   const [contribForm, setContribForm] = useState({ date: today(), account: onlyAccount || "연금저축", amount: "", memo: "" });
   const [tradeAdding, setTradeAdding] = useState(false);
-  const [taxHighIncome, setTaxHighIncome] = useState(false);
+  // 총급여 구간은 연금저축/IRP 공통 설정 → localStorage로 공유
+  const [taxHighIncome, setTaxHighIncomeState] = useState(() => localStorage.getItem("dc_tax_high_income") === "true");
+  const setTaxHighIncome = (v) => {
+    localStorage.setItem("dc_tax_high_income", String(v));
+    setTaxHighIncomeState(v);
+  };
   const [tradeForm, setTradeForm] = useState({ date: today(), account: onlyAccount || "연금저축", units: "", unit_price: "", memo: "" });
   const allTrades = pension?.trades || [];
   const trades = onlyAccount ? allTrades.filter(x => x.account === onlyAccount) : allTrades;
@@ -1549,12 +1554,14 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
         const ps = pension?.summary || {};
         const thisYear = new Date().getFullYear();
         // 올해 납입액 = 별도 납입기록 + 매수금액 (자동이체 후 즉시 매수 패턴)
+        // 날짜 문자열에서 연도만 직접 추출 (타임존 변환 영향 제거)
+        const yearOf = (d) => Number(String(fmtDate(d)).slice(0, 4));
         const ytdOf = (acctName) => {
           const dep = allDeposits
-            .filter(d => d.account === acctName && new Date(fmtDate(d.date)).getFullYear() === thisYear)
+            .filter(d => d.account === acctName && yearOf(d.date) === thisYear)
             .reduce((s, d) => s + (Number(d.amount) || 0), 0);
           const tr = allTrades
-            .filter(x => x.account === acctName && new Date(fmtDate(x.date)).getFullYear() === thisYear)
+            .filter(x => x.account === acctName && yearOf(x.date) === thisYear)
             .reduce((s, x) => s + (Number(x.amount) || 0), 0);
           return dep + tr;
         };
@@ -1580,6 +1587,7 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>올해 세액공제 현황</span>
               <button onClick={() => setTaxHighIncome(!highIncome)}
+                title="연금저축·IRP 공통 적용됩니다"
                 style={{ ...btnStyle(t.border), padding: "3px 8px", fontSize: 9, color: t.text }}>
                 {highIncome ? "총급여 5,500만↑" : "총급여 5,500만↓"}
               </button>
@@ -1611,7 +1619,8 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
               </div>
             )}
             <div style={{ marginTop: 6, fontSize: 9, color: t.textFaint }}>
-              ※ 매수 기록 금액을 납입액으로 집계합니다 ({thisYear}년 기준)
+              ※ 매수 기록 금액을 납입액으로 집계합니다 ({thisYear}년 기준)<br />
+              ※ 총급여 구간은 연금저축·IRP에 공통 적용됩니다
             </div>
           </div>
         );
