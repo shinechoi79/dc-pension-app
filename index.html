@@ -69,11 +69,16 @@ function SimpleAreaChart({ data, dataKey, color, height = 140, formatY, t }) {
             fill="transparent"
             onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} />
         ))}
-        {data.map((d, i) => (
-          <text key={i} x={points[i][0]} y={H - 8} fontSize="9" fill={t.textFaint} textAnchor="middle">
-            {d.month || d.label}
-          </text>
-        ))}
+        {data.map((d, i) => {
+          // 데이터가 많으면 라벨 솎아내기 (최대 6개 표시)
+          const step = Math.max(1, Math.ceil(data.length / 6));
+          if (data.length > 7 && i % step !== 0 && i !== data.length - 1) return null;
+          return (
+            <text key={i} x={points[i][0]} y={H - 8} fontSize="9" fill={t.textFaint} textAnchor="middle">
+              {d.month || d.label}
+            </text>
+          );
+        })}
       </svg>
       {hover !== null && (
         <div style={{
@@ -375,6 +380,13 @@ function App() {
       } catch(e) {
         all.pension = null;
       }
+      // 자산 히스토리 로딩 (없어도 앱은 정상 동작)
+      try {
+        const history = await jsonpGet(apiUrl, "history");
+        all.history = history || [];
+      } catch(e) {
+        all.history = [];
+      }
       setData(all);
     } catch (e) {
       setError(e.message);
@@ -622,11 +634,12 @@ function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 
   const dcaDone = Number(summary.dca_done) || 0;
   const dcaTotal = Number(summary.dca_total) || 12;
 
-  // 투자원금 vs 평가액 비교 (실제 데이터 기반)
-  const chartData = [
-    { month: "투자원금", value: Math.round(totalCost) },
-    { month: "현재평가액", value: Math.round(totalValue) },
-  ];
+  // 자산 추이 (ASSET_HISTORY 기반)
+  const history = data?.history || [];
+  const histChart = history.map(h => ({
+    month: fmtDate(h.date).slice(5).replace("-", "/"),  // MM/DD
+    value: Math.round(Number(h.total_eval) || 0),
+  }));
 
   // 3계좌 전체 종목 통합 자산배분
   const pensionAccts = data?.pension?.accounts || [];
@@ -684,6 +697,45 @@ function Dashboard({ t, data, totalValue, totalCost, savingsEval = 0, irpEval = 
         </div>
       </div>
 
+
+      {/* ── 자산 추이 (히스토리) ─────────────────────────────── */}
+      <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>전체 자산 추이</span>
+          {histChart.length > 1 && (() => {
+            const first = histChart[0].value;
+            const last = histChart[histChart.length - 1].value;
+            const chg = last - first;
+            const chgPct = first > 0 ? (chg / first) * 100 : 0;
+            return (
+              <span style={{ fontSize: 11, color: chg >= 0 ? "#EF4444" : "#3B82F6", fontWeight: 700 }}>
+                {chg >= 0 ? "▲" : "▼"} ₩{fmt(Math.abs(chg))} ({pct(chgPct)})
+              </span>
+            );
+          })()}
+        </div>
+        {histChart.length < 2 ? (
+          <div style={{ padding: "24px 12px", textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: t.textFaint, lineHeight: 1.7 }}>
+              아직 추이 데이터가 부족해요<br />
+              매일 자동으로 기록되며, 2일 이상 쌓이면 그래프가 표시됩니다
+            </div>
+            {histChart.length === 1 && (
+              <div style={{ fontSize: 10, color: t.textMuted, marginTop: 8 }}>
+                현재 {histChart.length}일치 기록됨
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <SimpleAreaChart data={histChart} dataKey="value" color="#10B981" height={150} formatY={v => `₩${fmt(v)}`} t={t} />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 9, color: t.textFaint }}>
+              <span>{histChart.length}일치 기록</span>
+              <span>최저 ₩{fmtM(Math.min(...histChart.map(h => h.value)))} · 최고 ₩{fmtM(Math.max(...histChart.map(h => h.value)))}</span>
+            </div>
+          </>
+        )}
+      </div>
 
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>전체 투자원금 vs 현재 평가액</div>
