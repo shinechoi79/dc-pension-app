@@ -10,6 +10,10 @@
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; }
+  @keyframes dcLoadingBar {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
+  }
 </style>
 </head>
 <body>
@@ -212,6 +216,7 @@ function SimpleDonut({ data, colors, size = 120 }) {
 //  설정
 // ════════════════════════════════════════════════════════════════
 const API_URL_KEY = "dc_api_url";
+const CACHE_KEY = "dc_data_cache";
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbw6U-yGtzzjqkK0hvk0qlyxpn0Rz9n3yBmOcgH822-zvZsSgCmmpB5a7yymOBxLI7Fe/exec";
 const THEME_KEY = "dc_theme";
 
@@ -378,6 +383,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
+  const [lastSync, setLastSync] = useState(null);
 
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
@@ -385,34 +391,54 @@ function App() {
   }, []);
 
   // ── 전체 데이터 로딩 ──────────────────────────────────────────
-  const loadAll = useCallback(async () => {
+  // ── 캐시 우선 로딩 ────────────────────────────────────────────
+  // 1) 저장된 캐시가 있으면 즉시 화면 표시 (대기 0초)
+  // 2) 백그라운드에서 최신 데이터 조회 후 조용히 갱신
+  const loadAll = useCallback(async (opts = {}) => {
     if (!apiUrl) return;
-    setLoading(true);
+    const silent = !!opts.silent;
+    if (!silent) setLoading(true);
     setError(null);
     try {
-      const all = await jsonpGet(apiUrl, "all");
-      // 연금저축/IRP 데이터 추가 로딩 (실패해도 DC는 정상 표시)
+      // 단일 호출로 전체 데이터 수신 (bootstrap)
+      let all;
       try {
-        const pension = await jsonpGet(apiUrl, "pension");
-        all.pension = pension;
-      } catch(e) {
-        all.pension = null;
-      }
-      // 자산 히스토리 로딩 (없어도 앱은 정상 동작)
-      try {
-        const history = await jsonpGet(apiUrl, "history");
-        all.history = history || [];
-      } catch(e) {
-        all.history = [];
+        all = await jsonpGet(apiUrl, "bootstrap");
+      } catch (e) {
+        // bootstrap 미지원(구버전 API) 시 기존 방식으로 폴백
+        all = await jsonpGet(apiUrl, "all");
+        try { all.pension = await jsonpGet(apiUrl, "pension"); } catch(_) { all.pension = null; }
+        try { all.history = await jsonpGet(apiUrl, "history"); } catch(_) { all.history = []; }
       }
       setData(all);
+      setLastSync(new Date());
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data: all }));
+      } catch(_) {}
     } catch (e) {
+      // 갱신 실패해도 캐시가 화면에 남아있으면 에러 배너만 표시
       setError(e.message);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [apiUrl]);
 
-  useEffect(() => { if (apiUrl) loadAll(); }, [apiUrl, loadAll]);
+  // 최초 진입: 캐시 즉시 표시 → 백그라운드 갱신
+  useEffect(() => {
+    if (!apiUrl) return;
+    let hadCache = false;
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached && cached.data) {
+          setData(cached.data);
+          setLastSync(new Date(cached.at));
+          hadCache = true;
+        }
+      }
+    } catch(_) {}
+    loadAll({ silent: hadCache });
+  }, [apiUrl, loadAll]);
 
   const saveApiUrl = (url) => {
     localStorage.setItem(API_URL_KEY, url);
@@ -427,7 +453,7 @@ function App() {
       showToast(successMsg || "저장되었습니다 (화면은 잠시 후 갱신)");
       // POST 완료 즉시 반환 → 저장 중... 상태 즉시 해제
       // 재조회는 백그라운드에서 2초 후 실행
-      setTimeout(() => loadAll(), 2000);
+      setTimeout(() => loadAll({ silent: true }), 2000);
       return true;
     } catch (e) {
       showToast(e.message, "error");
@@ -486,13 +512,21 @@ function App() {
                     {isUp ? "+" : "-"}₩{fmt(Math.abs(gain))}
                   </span>
                 </div>
-                <div style={{ fontSize: 11, color: "#5A6376", marginTop: 6 }}>
-                  투자 원금 ₩{fmt(totalAllCost)}
+                <div style={{ fontSize: 11, color: "#5A6376", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>투자 원금 ₩{fmt(totalAllCost)}</span>
+                  {loading && data && (
+                    <span style={{ fontSize: 10, color: "#8A94A6" }}>· 갱신 중…</span>
+                  )}
+                  {!loading && lastSync && (
+                    <span style={{ fontSize: 10, color: "#5A6376" }}>
+                      · {new Date(lastSync).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준
+                    </span>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button onClick={toggleTheme} style={headerBtnStyle()}>{theme === "dark" ? "☀️" : "🌙"}</button>
-                <button onClick={loadAll} style={headerBtnStyle()} disabled={loading}>{loading ? "⏳" : "🔄"}</button>
+                <button onClick={() => loadAll()} style={headerBtnStyle()} disabled={loading}>{loading ? "⏳" : "🔄"}</button>
                 <button onClick={() => setShowSetup(true)} style={headerBtnStyle()}>⚙️</button>
               </div>
             </div>
@@ -508,10 +542,17 @@ function App() {
         </div>
       )}
 
-      {/* 로딩 */}
+      {/* 로딩 (캐시가 없는 최초 진입에만 표시) */}
       {loading && !data && (
-        <div style={{ padding: 60, textAlign: "center", color: t.textMuted, fontSize: 13 }}>
-          ⏳ Google Sheets에서 데이터 불러오는 중...
+        <div style={{ padding: "50px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: t.textSub, marginBottom: 8 }}>데이터를 불러오는 중입니다</div>
+          <div style={{ fontSize: 11, color: t.textFaint }}>최초 실행은 몇 초 걸릴 수 있어요</div>
+          <div style={{ marginTop: 20, height: 3, background: t.border, borderRadius: 2, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", width: "40%", background: t.textMuted, borderRadius: 2,
+              animation: "dcLoadingBar 1.2s ease-in-out infinite",
+            }} />
+          </div>
         </div>
       )}
 
