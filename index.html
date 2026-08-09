@@ -10,6 +10,10 @@
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; }
+  @keyframes dcSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
   @keyframes dcLoadingBar {
     0%   { transform: translateX(-100%); }
     100% { transform: translateX(250%); }
@@ -351,12 +355,33 @@ const ACCT_COLORS = {
 // ════════════════════════════════════════════════════════════════
 //  탭 정의
 // ════════════════════════════════════════════════════════════════
+// ── 단색 선형 아이콘 (SVG) ───────────────────────────────────────
+const Icon = ({ name, size = 20, color = "currentColor", strokeWidth = 1.6 }) => {
+  const p = { fill: "none", stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" };
+  const paths = {
+    dashboard: <><rect x="3" y="3" width="7" height="9" rx="1.5" {...p} /><rect x="14" y="3" width="7" height="5" rx="1.5" {...p} /><rect x="14" y="12" width="7" height="9" rx="1.5" {...p} /><rect x="3" y="16" width="7" height="5" rx="1.5" {...p} /></>,
+    building: <><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16" {...p} /><path d="M15 9h4a1 1 0 0 1 1 1v11" {...p} /><path d="M2 21h20" {...p} /><path d="M7.5 8h3M7.5 12h3M7.5 16h3" {...p} /></>,
+    bank: <><path d="M3 10h18" {...p} /><path d="M12 3 3 8h18l-9-5Z" {...p} /><path d="M6 10v7M10 10v7M14 10v7M18 10v7" {...p} /><path d="M3 20h18" {...p} /></>,
+    briefcase: <><rect x="2.5" y="7" width="19" height="13" rx="2" {...p} /><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7" {...p} /><path d="M2.5 12h19" {...p} /></>,
+    target: <><circle cx="12" cy="12" r="8.5" {...p} /><circle cx="12" cy="12" r="4.5" {...p} /><circle cx="12" cy="12" r="1" fill={color} stroke="none" /></>,
+    refresh: <><path d="M20 11a8 8 0 0 0-13.7-5.7L3 8.5" {...p} /><path d="M3 4v4.5h4.5" {...p} /><path d="M4 13a8 8 0 0 0 13.7 5.7L21 15.5" {...p} /><path d="M21 20v-4.5h-4.5" {...p} /></>,
+    settings: <><circle cx="12" cy="12" r="3" {...p} /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H2a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 3.7 7.9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H8a1.6 1.6 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V8a1.6 1.6 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z" {...p} /></>,
+    sun: <><circle cx="12" cy="12" r="4" {...p} /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" {...p} /></>,
+    moon: <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.6 6.6 0 0 0 10.5 10.5Z" {...p} />,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block", flexShrink: 0 }}>
+      {paths[name] || null}
+    </svg>
+  );
+};
+
 const TABS = [
-  { id: "dashboard", label: "대시보드", icon: "📊" },
-  { id: "dc", label: "DC", icon: "🏢" },
-  { id: "savings", label: "연금저축", icon: "🏦" },
-  { id: "irp", label: "IRP", icon: "💼" },
-  { id: "simulator", label: "시뮬레이터", icon: "🎯" },
+  { id: "dashboard", label: "대시보드", icon: "dashboard" },
+  { id: "dc", label: "DC", icon: "building" },
+  { id: "savings", label: "연금저축", icon: "bank" },
+  { id: "irp", label: "IRP", icon: "briefcase" },
+  { id: "simulator", label: "시뮬레이터", icon: "target" },
 ];
 
 // DC 탭 내부 서브탭
@@ -525,9 +550,13 @@ function App() {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={toggleTheme} style={headerBtnStyle()}>{theme === "dark" ? "☀️" : "🌙"}</button>
-                <button onClick={() => loadAll()} style={headerBtnStyle()} disabled={loading}>{loading ? "⏳" : "🔄"}</button>
-                <button onClick={() => setShowSetup(true)} style={headerBtnStyle()}>⚙️</button>
+                <button onClick={toggleTheme} style={headerBtnStyle()}><Icon name={theme === "dark" ? "sun" : "moon"} size={17} color="#C8D0DC" /></button>
+                <button onClick={() => loadAll()} style={headerBtnStyle()} disabled={loading}>
+                  <div style={{ animation: loading ? "dcSpin 1s linear infinite" : "none" }}>
+                    <Icon name="refresh" size={17} color="#C8D0DC" />
+                  </div>
+                </button>
+                <button onClick={() => setShowSetup(true)} style={headerBtnStyle()}><Icon name="settings" size={17} color="#C8D0DC" /></button>
               </div>
             </div>
           </div>
@@ -563,7 +592,7 @@ function App() {
           {tab === "dc" && (
             <div>
               {/* DC 요약 카드 */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "16px 16px 0" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: "16px 16px 0" }}>
                 {[
                   { label: "분할매수 진행", value: `${Number(data.summary.dca_done)||0}/${Number(data.summary.dca_total)||12}회`, sub: "6개월 12회", color: "#60A5FA" },
                   { label: "배당금 수령", value: `₩${fmtM(data.summary.total_dividend)}`, sub: "누적", color: "#34D399" },
@@ -571,8 +600,8 @@ function App() {
                   { label: "DC 평가수익", value: pct(totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0), sub: `₩${fmtM(totalValue - totalCost)}`, color: (totalValue - totalCost) >= 0 ? t.up : t.down },
                 ].map((cd, i) => (
                   <div key={i} style={{ background: t.card, borderRadius: 12, padding: 14, border: `1px solid ${t.border}` }}>
-                    <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 4 }}>{cd.label}</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: cd.color }}>{cd.value}</div>
+                    <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{cd.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: cd.color }}>{cd.value}</div>
                     <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{cd.sub}</div>
                   </div>
                 ))}
@@ -615,15 +644,24 @@ function App() {
       )}
 
       {/* 하단 탭 바 */}
-      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: t.bg, borderTop: `1px solid ${t.border}`, display: "flex" }}>
-        {TABS.map(tb => (
-          <button key={tb.id} onClick={() => setTab(tb.id)}
-            style={{ flex: 1, padding: "10px 0 8px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-            <span style={{ fontSize: 18 }}>{tb.icon}</span>
-            <span style={{ fontSize: 9, color: tab === tb.id ? "#60A5FA" : t.textFaint, fontWeight: tab === tb.id ? 700 : 400 }}>{tb.label}</span>
-            {tab === tb.id && <div style={{ width: 20, height: 2, background: "#60A5FA", borderRadius: 1 }} />}
-          </button>
-        ))}
+      <div style={{
+        position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
+        width: "100%", maxWidth: 480, background: t.bg,
+        borderTop: `1px solid ${t.border}`, display: "flex",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}>
+        {TABS.map(tb => {
+          const active = tab === tb.id;
+          const col = active ? t.text : t.textFaint;
+          return (
+            <button key={tb.id} onClick={() => setTab(tb.id)}
+              style={{ flex: 1, padding: "8px 0 8px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, position: "relative" }}>
+              <Icon name={tb.icon} size={20} color={col} strokeWidth={active ? 2 : 1.5} />
+              <span style={{ fontSize: 10, color: col, fontWeight: active ? 600 : 400, letterSpacing: "-0.2px" }}>{tb.label}</span>
+              {active && <div style={{ position: "absolute", top: 0, width: 24, height: 2, background: t.text, borderRadius: 1 }} />}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -690,7 +728,7 @@ function SetupScreen({ theme: t, onSave, initial, onCancel }) {
       </div>
 
       <div style={{ marginTop: 20, padding: 14, background: t.card, borderRadius: 12, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 11, color: "#60A5FA", fontWeight: 700, marginBottom: 8 }}>💡 URL 찾는 방법</div>
+        <div style={{ fontSize: 11, color: "#60A5FA", fontWeight: 700, marginBottom: 8 }}>URL 찾는 방법</div>
         <div style={{ fontSize: 11, color: t.textSub, lineHeight: 1.7 }}>
           Google Sheets → 확장 프로그램 → Apps Script → 배포 → 배포 관리에서<br />
           웹 앱 URL을 복사해서 붙여넣으세요.
@@ -747,7 +785,7 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
 
       {/* ── 계좌별 구성 ─────────────────────────────────── */}
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>계좌별 구성</div>
+        <div style={{ fontSize: 13, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>계좌별 구성</div>
 
         {/* 누적 비중 바 */}
         <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginBottom: 14 }}>
@@ -786,7 +824,7 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
       {/* ── 자산 추이 (히스토리) ─────────────────────────────── */}
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>전체 자산 추이</span>
+          <span style={{ fontSize: 13, color: t.textSub, fontWeight: 600 }}>전체 자산 추이</span>
           {histChart.length > 1 && (() => {
             const first = histChart[0].value;
             const last = histChart[histChart.length - 1].value;
@@ -814,7 +852,7 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
         ) : (
           <>
             <SimpleAreaChart data={histChart} dataKey="value" color="#10B981" height={150} formatY={v => `₩${fmt(v)}`} t={t} />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 9, color: t.textFaint }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: t.textFaint }}>
               <span>{histChart.length}일치 기록</span>
               <span>최저 ₩{fmtM(Math.min(...histChart.map(h => h.value)))} · 최고 ₩{fmtM(Math.max(...histChart.map(h => h.value)))}</span>
             </div>
@@ -823,7 +861,7 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
       </div>
 
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>전체 투자원금 vs 현재 평가액</div>
+        <div style={{ fontSize: 13, color: t.textSub, marginBottom: 14, fontWeight: 600 }}>전체 투자원금 vs 현재 평가액</div>
         {[
           { label: "투자 원금", value: totalAllCost, color: t.textMuted },
           { label: "현재 평가액", value: totalAllEval, color: totalAllEval >= totalAllCost ? t.up : t.down },
@@ -847,7 +885,7 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
       </div>
 
       <div style={{ background: t.card, borderRadius: 12, padding: 16, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12, fontWeight: 600 }}>전체 자산배분 (3계좌 통합)</div>
+        <div style={{ fontSize: 13, color: t.textSub, marginBottom: 12, fontWeight: 600 }}>전체 자산배분 (3계좌 통합)</div>
         {pieData.length === 0 ? (
           <div style={{ fontSize: 11, color: t.textFaint, textAlign: "center", padding: 20 }}>아직 매수 내역이 없어요</div>
         ) : (
@@ -879,12 +917,13 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
 // ════════════════════════════════════════════════════════════════
 function Portfolio({ t, data, totalValue, apiUrl, runAction }) {
   const [editing, setEditing] = useState(null);
+  const [expanded, setExpanded] = useState(null);
   const [form, setForm] = useState({ units: "", avg_cost: "" });
   const [saving, setSaving] = useState(false);
 
   const portfolio = data.portfolio || [];
 
-  const openEdit = (p) => { setEditing(p.ticker); setForm({ units: p.units, avg_cost: p.avg_cost }); };
+  const openEdit = (p) => { setEditing(p.ticker); setExpanded(p.ticker); setForm({ units: p.units, avg_cost: p.avg_cost }); };
 
   const save = async (ticker) => {
     setSaving(true);
@@ -906,30 +945,46 @@ function Portfolio({ t, data, totalValue, apiUrl, runAction }) {
         const targetRatio = (Number(p.target_ratio) || 0) * 100;
         const diff = actualRatio - targetRatio;
         const isEditing = editing === p.ticker;
+        const isOpen = expanded === p.ticker;
 
         return (
-          <div key={p.ticker} style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 10, border: `1px solid ${isParking ? "#F59E0B40" : t.border}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: COLORS[i % COLORS.length] }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{p.name}</span>
-                  {isParking && <span style={{ fontSize: 9, color: "#F59E0B", background: "#451A0320", padding: "1px 6px", borderRadius: 4 }}>대기자산</span>}
+          <div key={p.ticker} style={{ background: t.card, borderRadius: 12, marginBottom: 8, border: `1px solid ${t.border}`, overflow: "hidden" }}>
+            <div onClick={() => setExpanded(isOpen ? null : p.ticker)}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}>
+              <div style={{ width: 3, height: 32, borderRadius: 2, background: isParking ? t.textFaint : DC_SHADES[i % DC_SHADES.length], flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  {isParking && <span style={{ fontSize: 9, color: t.textFaint, border: `1px solid ${t.border}`, padding: "0 4px", borderRadius: 3, flexShrink: 0 }}>대기</span>}
                 </div>
-                <span style={{ fontSize: 10, color: t.textFaint }}>{p.ticker} · 현재가 ₩{fmt(p.current_price)}</span>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>
+                  {fmt(p.units)}주 · {actualRatio.toFixed(1)}%
+                  {!isParking && <span style={{ color: Math.abs(diff) > 5 ? "#F59E0B" : t.textFaint }}> / 목표 {targetRatio.toFixed(0)}%</span>}
+                </div>
               </div>
-              <button onClick={() => openEdit(p)} style={{ ...btnStyle(t.border), padding: "4px 8px", fontSize: 10, color: t.text }}>수정</button>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums" }}>₩{fmtM(p.eval_amount)}</div>
+                <div style={{ fontSize: 11, color: ret >= 0 ? t.up : t.down, fontVariantNumeric: "tabular-nums" }}>{pct(ret)}</div>
+              </div>
+              <span style={{ fontSize: 13, color: t.textFaint, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}>›</span>
+            </div>
+
+            {isOpen && (
+            <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${t.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12 }}>
+              <span style={{ fontSize: 10, color: t.textFaint }}>{p.ticker} · 현재가 ₩{fmt(p.current_price)}</span>
+              <button onClick={(e) => { e.stopPropagation(); openEdit(p); }} style={{ ...btnStyle(t.border), padding: "4px 10px", fontSize: 10, color: t.text }}>수정</button>
             </div>
 
             {isEditing && (
               <div style={{ marginTop: 10, padding: 10, background: t.inputBg, borderRadius: 8 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                   <div>
-                    <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>보유 수량</div>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>보유 수량</div>
                     <input type="number" value={form.units} onChange={e => setForm(f => ({ ...f, units: e.target.value }))} style={inputStyle(t)} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>평균 매입단가</div>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>평균 매입단가</div>
                     <input type="number" value={form.avg_cost} onChange={e => setForm(f => ({ ...f, avg_cost: e.target.value }))} style={inputStyle(t)} />
                   </div>
                 </div>
@@ -950,25 +1005,21 @@ function Portfolio({ t, data, totalValue, apiUrl, runAction }) {
               <Stat t={t} label="현재/목표 비중" value={`${actualRatio.toFixed(1)}% / ${targetRatio.toFixed(0)}%`} color={Math.abs(diff) > 5 && !isParking ? "#F59E0B" : t.textSub} />
             </div>
             {Math.abs(diff) > 5 && !isParking && (() => {
-              // 리밸런싱 실행 가이드: 목표 비중으로 맞추려면 몇 주 매수/매도?
               const targetAmount = totalValue * (targetRatio / 100);
               const gapAmount = targetAmount - Number(p.eval_amount);
               const price = Number(p.current_price) || 0;
               const shares = price > 0 ? Math.abs(Math.round(gapAmount / price)) : 0;
               const isBuy = gapAmount > 0;
+              if (shares === 0) return null;
               return (
-                <div style={{ marginTop: 8, background: "#451A0320", borderRadius: 6, padding: "6px 10px" }}>
-                  <div style={{ fontSize: 10, color: "#F59E0B", marginBottom: 3 }}>
-                    ⚠ 목표 비중 대비 {diff > 0 ? "+" : ""}{diff.toFixed(1)}%p
-                  </div>
-                  {shares > 0 && (
-                    <div style={{ fontSize: 11, color: isBuy ? t.up : t.down, fontWeight: 700 }}>
-                      → {isBuy ? "매수" : "매도"} {fmt(shares)}주 (약 ₩{fmt(Math.abs(gapAmount))})
-                    </div>
-                  )}
+                <div style={{ marginTop: 10, padding: "8px 10px", background: t.inputBg, borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 10, color: t.textMuted }}>목표 비중까지 {diff > 0 ? "+" : ""}{diff.toFixed(1)}%p</span>
+                  <span style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>{isBuy ? "매수" : "매도"} {fmt(shares)}주</span>
                 </div>
               );
             })()}
+            </div>
+            )}
           </div>
         );
       })}
@@ -1141,8 +1192,8 @@ function DCA({ t, data, apiUrl, runAction }) {
 
   return (
     <div style={{ padding: 16 }}>
-      <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 10 }}>6개월 {totalDCA}회 분할매수 현황</div>
+      <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
+        <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600, marginBottom: 10 }}>6개월 {totalDCA}회 분할매수 현황</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
           <Stat t={t} label="완료" value={`${done}회`} color="#34D399" />
           <Stat t={t} label="잔여" value={`${remaining}회`} color="#F59E0B" />
@@ -1158,9 +1209,9 @@ function DCA({ t, data, apiUrl, runAction }) {
 
       {/* ── 이번 회차 플래너 ────────────────────────────────────── */}
       {remaining > 0 && (
-        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
+        <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#60A5FA" }}>🎯 {currentRound}회차 매수 플래너</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#60A5FA" }}>{currentRound}회차 매수 플래너</span>
             <span style={{ fontSize: 11, color: t.textMuted }}>{plannerDoneCount}/{plannerRows.length}종목 완료</span>
           </div>
           <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 10 }}>
@@ -1206,15 +1257,15 @@ function DCA({ t, data, apiUrl, runAction }) {
       )}
 
       {remaining === 0 && (
-        <div style={{ background: "#064E3B", borderRadius: 12, padding: 14, marginBottom: 14, textAlign: "center" }}>
+        <div style={{ background: "#064E3B", borderRadius: 12, padding: 16, marginBottom: 12, textAlign: "center" }}>
           <span style={{ fontSize: 12, color: "#34D399", fontWeight: 700 }}>🎉 12회 분할매수 전부 완료되었습니다!</span>
         </div>
       )}
 
       {/* ── 회사 기여금 매수 가이드 ──────────────────────────────── */}
       {companyContributions.length > 0 && (
-        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: "1px solid #10B98140" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#34D399", marginBottom: 4 }}>💼 회사 기여금 매수 가이드</div>
+        <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: "1px solid #10B98140" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#34D399", marginBottom: 4 }}>회사 기여금 매수 가이드</div>
           <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 10 }}>
             선택한 입금액을 목표 비중대로 나누어 추천 수량을 계산합니다
           </div>
@@ -1281,12 +1332,12 @@ function DCA({ t, data, apiUrl, runAction }) {
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                       <div>
-                        <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>수량 (주)</div>
+                        <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>수량 (주)</div>
                         <input type="number" value={f.units || ""} placeholder="0"
                           onChange={e => setContribBuyField(p.ticker, "units", e.target.value)} style={inputStyle(t)} />
                       </div>
                       <div>
-                        <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>체결단가</div>
+                        <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>체결단가</div>
                         <input type="number" value={f.unit_price || ""} placeholder={fmt(p.current_price)}
                           onChange={e => setContribBuyField(p.ticker, "unit_price", e.target.value)} style={inputStyle(t)} />
                       </div>
@@ -1316,8 +1367,8 @@ function DCA({ t, data, apiUrl, runAction }) {
         </div>
       )}
 
-      <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 8 }}>회차별 집행 현황</div>
+      <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
+        <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600, marginBottom: 8 }}>회차별 집행 현황</div>
         <SimpleLineChart
           data={barData}
           lines={[
@@ -1334,13 +1385,13 @@ function DCA({ t, data, apiUrl, runAction }) {
       {done > 0 && (() => {
         const roundNums = [...new Set(dca.map(d => Number(d.round)))].sort((a,b) => a-b);
         return (
-          <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
-            <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 10 }}>회차별 계획 vs 실제</div>
+          <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600, marginBottom: 10 }}>회차별 계획 vs 실제</div>
             <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 84px", gap: 6, paddingBottom: 6, borderBottom: `1px solid ${t.border}` }}>
-              <span style={{ fontSize: 9, color: t.textFaint }}>회차</span>
-              <span style={{ fontSize: 9, color: t.textFaint, textAlign: "right" }}>계획</span>
-              <span style={{ fontSize: 9, color: t.textFaint, textAlign: "right" }}>실제</span>
-              <span style={{ fontSize: 9, color: t.textFaint, textAlign: "right" }}>차이</span>
+              <span style={{ fontSize: 10, color: t.textFaint }}>회차</span>
+              <span style={{ fontSize: 10, color: t.textFaint, textAlign: "right" }}>계획</span>
+              <span style={{ fontSize: 10, color: t.textFaint, textAlign: "right" }}>실제</span>
+              <span style={{ fontSize: 10, color: t.textFaint, textAlign: "right" }}>차이</span>
             </div>
             {roundNums.map(r => {
               const roundRows = dca.filter(d => Number(d.round) === r);
@@ -1383,9 +1434,9 @@ function DCA({ t, data, apiUrl, runAction }) {
       </div>
 
       {adding && (
-        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid #3B82F6" }}>
+        <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: "1px solid #3B82F6" }}>
           <div style={{ fontSize: 13, color: "#60A5FA", fontWeight: 700, marginBottom: 12 }}>
-            🛒 {currentRound}회차 매수 기록 ({realProducts.length}종목 한꺼번에)
+            {currentRound}회차 매수 기록 ({realProducts.length}종목 한꺼번에)
           </div>
 
           {/* 매수일 공통 */}
@@ -1406,12 +1457,12 @@ function DCA({ t, data, apiUrl, runAction }) {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   <div>
-                    <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>매수 수량 (주)</div>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>매수 수량 (주)</div>
                     <input type="number" value={f.units || ""} placeholder="0"
                       onChange={e => setRoundField(p.ticker, "units", e.target.value)} style={inputStyle(t)} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>체결단가 (MTS 확인)</div>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>체결단가 (MTS 확인)</div>
                     <input type="number" value={f.unit_price || ""} placeholder={fmt(p.current_price)}
                       onChange={e => setRoundField(p.ticker, "unit_price", e.target.value)} style={inputStyle(t)} />
                   </div>
@@ -1495,7 +1546,7 @@ function Contributions({ t, data, apiUrl, runAction }) {
 
   return (
     <div style={{ padding: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
         <div style={{ background: t.card, borderRadius: 12, padding: 14, border: `1px solid ${t.border}` }}>
           <div style={{ fontSize: 10, color: t.textMuted }}>회사 부담금</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: "#60A5FA", marginTop: 4 }}>₩{fmtM(company)}</div>
@@ -1514,7 +1565,7 @@ function Contributions({ t, data, apiUrl, runAction }) {
       </div>
 
       {adding && (
-        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid #3B82F6" }}>
+        <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: "1px solid #3B82F6" }}>
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>구분</div>
             <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} style={inputStyle(t)}>
@@ -1598,8 +1649,8 @@ function Dividends({ t, data, apiUrl, runAction }) {
       </div>
 
       {chartData.length > 0 && (
-        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
-          <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 8 }}>월별 배당금</div>
+        <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
+          <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600, marginBottom: 8 }}>월별 배당금</div>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 80, padding: "0 4px" }}>
             {chartData.map((d, i) => {
               const maxVal = Math.max(...chartData.map(x => x.amount), 1);
@@ -1608,7 +1659,7 @@ function Dividends({ t, data, apiUrl, runAction }) {
                 <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                   <span style={{ fontSize: 9, color: "#10B981", fontWeight: 600 }}>₩{fmtM(d.amount)}</span>
                   <div style={{ width: "100%", height: barH, background: "#10B981", borderRadius: "4px 4px 0 0", opacity: 0.8 }} />
-                  <span style={{ fontSize: 9, color: t.textFaint }}>{d.month}</span>
+                  <span style={{ fontSize: 10, color: t.textFaint }}>{d.month}</span>
                 </div>
               );
             })}
@@ -1622,7 +1673,7 @@ function Dividends({ t, data, apiUrl, runAction }) {
       </div>
 
       {adding && (
-        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid #10B981" }}>
+        <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: "1px solid #10B981" }}>
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>종목 선택</div>
             <select value={form.ticker} onChange={e => selectProduct(e.target.value)} style={inputStyle(t)}>
@@ -1750,7 +1801,7 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
     const ret = Number(acct.profit_rate) || 0;
     const isEdit = editAccount === label;
     return (
-      <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 12, border: `1px solid ${t.border}` }}>
+      <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div>
             <span style={{ fontSize: 10, color, fontWeight: 700, background: color + "20", padding: "2px 8px", borderRadius: 4 }}>{label}</span>
@@ -1764,11 +1815,11 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
           <div style={{ background: t.inputBg, borderRadius: 8, padding: 10, marginBottom: 10 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
               <div>
-                <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>보유 수량 (주)</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>보유 수량 (주)</div>
                 <input type="number" value={editForm.units} onChange={e => setEditForm(f => ({ ...f, units: e.target.value }))} style={inputStyle(t)} />
               </div>
               <div>
-                <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>평균 매입단가</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>평균 매입단가</div>
                 <input type="number" value={editForm.avg_cost} onChange={e => setEditForm(f => ({ ...f, avg_cost: e.target.value }))} style={inputStyle(t)} />
               </div>
             </div>
@@ -1850,9 +1901,9 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
         const maxRefund = Math.round(limit * rate);
 
         return (
-          <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
+          <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 12, color: t.textSub, fontWeight: 600 }}>올해 세액공제 현황</span>
+              <span style={{ fontSize: 13, color: t.textSub, fontWeight: 600 }}>올해 세액공제 현황</span>
               <button onClick={() => setTaxHighIncome(!highIncome)}
                 title="연금저축·IRP 공통 적용됩니다"
                 style={{ ...btnStyle(t.border), padding: "3px 8px", fontSize: 9, color: t.text }}>
@@ -1862,14 +1913,14 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
               <div style={{ background: t.inputBg, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>예상 환급액</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>예상 환급액</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: "#10B981" }}>₩{fmt(refund)}</div>
-                <div style={{ fontSize: 9, color: t.textFaint, marginTop: 2 }}>공제율 {(rate*100).toFixed(1)}%</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>공제율 {(rate*100).toFixed(1)}%</div>
               </div>
               <div style={{ background: t.inputBg, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>한도 채우면</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>한도 채우면</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: "#F59E0B" }}>₩{fmt(maxRefund)}</div>
-                <div style={{ fontSize: 9, color: t.textFaint, marginTop: 2 }}>+₩{fmt(maxRefund - refund)} 더</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>+₩{fmt(maxRefund - refund)} 더</div>
               </div>
             </div>
 
@@ -1882,10 +1933,10 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
             </div>
             {remain > 0 && (
               <div style={{ marginTop: 8, padding: "6px 10px", background: t.inputBg, borderRadius: 6, fontSize: 10, color: t.textSub }}>
-                💡 연말까지 ₩{fmt(remain)} 더 납입하면 ₩{fmt(Math.round(remain * rate))} 추가 환급
+                연말까지 ₩{fmt(remain)} 더 납입하면 ₩{fmt(Math.round(remain * rate))} 추가 환급
               </div>
             )}
-            <div style={{ marginTop: 6, fontSize: 9, color: t.textFaint }}>
+            <div style={{ marginTop: 6, fontSize: 10, color: t.textFaint }}>
               ※ 매수 기록 금액을 납입액으로 집계합니다 ({thisYear}년 기준)<br />
               ※ 총급여 구간은 연금저축·IRP에 공통 적용됩니다
             </div>
@@ -1904,7 +1955,7 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
       </div>
 
       {tradeAdding && (
-        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid #7B1FA2" }}>
+        <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: "1px solid #7B1FA2" }}>
           <div style={{ fontSize: 12, color: "#A855F7", fontWeight: 700, marginBottom: 10 }}>매수 기록 추가</div>
           {!onlyAccount && (
             <div style={{ marginBottom: 8 }}>
@@ -1975,7 +2026,7 @@ function PensionAccounts({ t, data, apiUrl, runAction, showToast, onlyAccount })
       </div>
 
       {adding && (
-        <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 12, border: "1px solid #8B5CF6" }}>
+        <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: "1px solid #8B5CF6" }}>
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>계좌 구분</div>
             <select value={contribForm.account} onChange={e => setContribForm(f => ({ ...f, account: e.target.value }))} style={inputStyle(t)}>
@@ -2060,23 +2111,23 @@ function Simulator({ t, data, totalValue, apiUrl, runAction, showToast }) {
   return (
     <div style={{ padding: 16 }}>
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 14, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 12 }}>시뮬레이터 설정</div>
+        <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600, marginBottom: 12 }}>시뮬레이터 설정</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 4 }}>현재 나이</div>
+            <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>현재 나이</div>
             <input type="number" value={currentAge} onChange={e => setCurrentAge(+e.target.value)}
               onBlur={() => saveConfig("current_age", currentAge)}
               style={{ ...inputStyle(t), textAlign: "center" }} />
           </div>
           <div>
-            <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 4 }}>목표 은퇴 나이</div>
+            <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>목표 은퇴 나이</div>
             <input type="number" value={targetAge} onChange={e => setTargetAge(Math.min(+e.target.value, currentAge + 10))}
               onBlur={() => saveConfig("target_age", targetAge)}
               style={{ ...inputStyle(t), textAlign: "center" }} />
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: t.textMuted, marginBottom: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
             <span>기대 수익률 (중립 시나리오)</span>
             <span style={{ color: "#34D399", fontWeight: 700 }}>{expectedReturn}%</span>
           </div>
@@ -2097,13 +2148,13 @@ function Simulator({ t, data, totalValue, apiUrl, runAction, showToast }) {
           <div key={s.label} style={{ background: t.card, borderRadius: 12, padding: 12, border: `1px solid ${s.color}30`, textAlign: "center" }}>
             <div style={{ fontSize: 10, color: s.color, fontWeight: 700, marginBottom: 4 }}>{s.label} {s.rate}%</div>
             <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>₩{fmtM(calcFV(s.rate))}</div>
-            <div style={{ fontSize: 9, color: t.textFaint, marginTop: 2 }}>{clampedYears}년 후</div>
+            <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{clampedYears}년 후</div>
           </div>
         ))}
       </div>
 
       <div style={{ background: t.card, borderRadius: 12, padding: 14, border: `1px solid ${t.border}` }}>
-        <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 12 }}>복리 성장 시나리오 비교</div>
+        <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600, marginBottom: 12 }}>복리 성장 시나리오 비교</div>
         <SimpleLineChart
           data={chartData}
           lines={scenarios.map(s => ({ key: s.label, label: s.label, color: s.color }))}
