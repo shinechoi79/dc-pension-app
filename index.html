@@ -901,8 +901,12 @@ function Portfolio({ t, data, totalValue, apiUrl, runAction }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
               <Stat t={t} label="평가액" value={`₩${fmtM(p.eval_amount)}`} />
+              <Stat t={t} label="평가손익" value={`${Number(p.profit_amount) >= 0 ? "+" : "-"}₩${fmtM(Math.abs(Number(p.profit_amount) || 0))}`} color={Number(p.profit_amount) >= 0 ? t.up : t.down} />
               <Stat t={t} label="수익률" value={pct(ret)} color={ret >= 0 ? t.up : t.down} />
-              <Stat t={t} label="현재/목표" value={`${actualRatio.toFixed(1)}% / ${targetRatio.toFixed(0)}%`} color={Math.abs(diff) > 5 && !isParking ? "#F59E0B" : t.textSub} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+              <Stat t={t} label="보유수량 / 평단" value={`${fmt(p.units)}주 · ₩${fmt(p.avg_cost)}`} />
+              <Stat t={t} label="현재/목표 비중" value={`${actualRatio.toFixed(1)}% / ${targetRatio.toFixed(0)}%`} color={Math.abs(diff) > 5 && !isParking ? "#F59E0B" : t.textSub} />
             </div>
             {Math.abs(diff) > 5 && !isParking && (() => {
               // 리밸런싱 실행 가이드: 목표 비중으로 맞추려면 몇 주 매수/매도?
@@ -940,10 +944,21 @@ function DCA({ t, data, apiUrl, runAction }) {
   const [roundDate, setRoundDate] = useState(today());
   // 5종목 한꺼번에: { ticker: { amount, unit_price } }
   const [roundForms, setRoundForms] = useState({});
+  // 기여금 매수 기록
+  const [contribBuyAdding, setContribBuyAdding] = useState(false);
+  const [contribBuyDate, setContribBuyDate] = useState(today());
+  const [contribBuyForms, setContribBuyForms] = useState({});
+  const setContribBuyField = (ticker, field, value) =>
+    setContribBuyForms(prev => ({ ...prev, [ticker]: { ...prev[ticker], [field]: value } }));
   const setRoundField = (ticker, field, value) =>
     setRoundForms(prev => ({ ...prev, [ticker]: { ...prev[ticker], [field]: value } }));
 
-  const dca = data.dca || [];
+  const dcaAll = data.dca || [];
+  // 분할매수와 기여금매수 분리 (source 컬럼 기준, 없으면 분할매수로 간주)
+  const isContribBuy = (d) => String(d.source || "").trim() === "기여금매수";
+  const dcaSplit = dcaAll.filter(d => !isContribBuy(d));
+  const dcaContrib = dcaAll.filter(isContribBuy);
+  const dca = dcaSplit;  // 기존 로직은 분할매수 기준 유지
   const summary = data.summary || {};
   const totalDCA = Number(summary.dca_total) || 12;
   const done = Number(summary.dca_done) || 0;  // DC_SUMMARY의 고유 회차 수 기준
@@ -1039,6 +1054,37 @@ function DCA({ t, data, apiUrl, runAction }) {
     setAdding(false);
     setRoundForms({});
     setRoundDate(today());
+  };
+
+  const addContribBuy = async () => {
+    const entries = realProducts.filter(p => {
+      const f = contribBuyForms[p.ticker];
+      return f && Number(f.units) > 0 && Number(f.unit_price) > 0;
+    });
+    if (entries.length === 0) return;
+    setSaving(true);
+    for (const p of entries) {
+      const f = contribBuyForms[p.ticker];
+      const u = Number(f.units);
+      const up = Number(f.unit_price);
+      const amt = Math.round(u * up);
+      await runAction("addDca", {
+        date: contribBuyDate, ticker: p.ticker, name: p.name,
+        amount: amt, unit_price: up, units: u,
+        memo: "회사 기여금 매수", source: "기여금매수",
+      }, null);
+      // 포트폴리오 보유현황 반영
+      const existing = (data.portfolio || []).find(x => x.ticker === p.ticker);
+      const pu = Number(existing?.units) || 0;
+      const pc = Number(existing?.avg_cost) || 0;
+      const nu = pu + u;
+      const nc = nu > 0 ? Math.round((pu * pc + amt) / nu) : up;
+      await runAction("updateHoldings", { ticker: p.ticker, units: nu, avg_cost: nc }, null);
+    }
+    setSaving(false);
+    setContribBuyAdding(false);
+    setContribBuyForms({});
+    setContribBuyDate(today());
   };
 
   const del = async (row, label) => {
@@ -1167,6 +1213,65 @@ function DCA({ t, data, apiUrl, runAction }) {
               <> · 단주 자투리 <span style={{ color: "#F59E0B", fontWeight: 700 }}>₩{fmt(contribTotalLeftover)}</span></>
             )}
           </div>
+
+          {/* 기여금 매수 기록 */}
+          <button onClick={() => setContribBuyAdding(true)}
+            style={{ ...btnStyle("#10B981"), width: "100%", marginTop: 10, padding: "9px 0" }}>
+            + 기여금으로 매수한 내역 기록
+          </button>
+
+          {contribBuyAdding && (
+            <div style={{ marginTop: 10, padding: 12, background: t.inputBg, borderRadius: 8, border: `1px solid ${t.border}` }}>
+              <div style={{ fontSize: 11, color: "#34D399", fontWeight: 700, marginBottom: 10 }}>
+                기여금 매수 기록 (회차에 포함되지 않음)
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>매수일</div>
+                <input type="date" value={contribBuyDate} onChange={e => setContribBuyDate(e.target.value)} style={inputStyle(t)} />
+              </div>
+              {realProducts.map((p, i) => {
+                const f = contribBuyForms[p.ticker] || {};
+                return (
+                  <div key={p.ticker} style={{ background: t.card, borderRadius: 8, padding: 10, marginBottom: 8, border: `1px solid ${t.border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: DC_SHADES[i % DC_SHADES.length] }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{p.name}</span>
+                      <span style={{ fontSize: 10, color: t.textFaint, marginLeft: "auto" }}>₩{fmt(p.current_price)}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>수량 (주)</div>
+                        <input type="number" value={f.units || ""} placeholder="0"
+                          onChange={e => setContribBuyField(p.ticker, "units", e.target.value)} style={inputStyle(t)} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>체결단가</div>
+                        <input type="number" value={f.unit_price || ""} placeholder={fmt(p.current_price)}
+                          onChange={e => setContribBuyField(p.ticker, "unit_price", e.target.value)} style={inputStyle(t)} />
+                      </div>
+                    </div>
+                    {f.units && f.unit_price && (
+                      <div style={{ fontSize: 10, color: "#34D399", marginTop: 4 }}>
+                        → ₩{fmt(Math.round(Number(f.units) * Number(f.unit_price)))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: 11, color: t.textSub, marginBottom: 10 }}>
+                총 매수금액 <span style={{ color: t.text, fontWeight: 700 }}>
+                  ₩{fmt(Object.values(contribBuyForms).reduce((s, f) =>
+                    s + (f.units && f.unit_price ? Math.round(Number(f.units) * Number(f.unit_price)) : 0), 0))}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={addContribBuy} disabled={saving} style={btnStyle("#10B981")}>
+                  {saving ? "저장 중..." : "저장"}
+                </button>
+                <button onClick={() => { setContribBuyAdding(false); setContribBuyForms({}); }} style={btnStyle("#475569")}>취소</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1190,25 +1295,43 @@ function DCA({ t, data, apiUrl, runAction }) {
         return (
           <div style={{ background: t.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: 12, color: t.textSub, fontWeight: 600, marginBottom: 10 }}>회차별 계획 vs 실제</div>
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 84px", gap: 6, paddingBottom: 6, borderBottom: `1px solid ${t.border}` }}>
+              <span style={{ fontSize: 9, color: t.textFaint }}>회차</span>
+              <span style={{ fontSize: 9, color: t.textFaint, textAlign: "right" }}>계획</span>
+              <span style={{ fontSize: 9, color: t.textFaint, textAlign: "right" }}>실제</span>
+              <span style={{ fontSize: 9, color: t.textFaint, textAlign: "right" }}>차이</span>
+            </div>
             {roundNums.map(r => {
               const roundRows = dca.filter(d => Number(d.round) === r);
               const actual = roundRows.reduce((s, d) => s + Number(d.amount), 0);
               const diff = actual - perRound;
               return (
-                <div key={r} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
-                  <span style={{ fontSize: 12, color: t.textSub, minWidth: 40 }}>{r}회차</span>
-                  <span style={{ fontSize: 11, color: t.textFaint }}>계획 ₩{fmt(perRound)}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>실제 ₩{fmt(actual)}</span>
-                  <span style={{ fontSize: 11, color: diff >= 0 ? t.up : t.down }}>
-                    {diff >= 0 ? "+" : ""}{fmt(diff)}
+                <div key={r} style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 84px", alignItems: "center", gap: 6, padding: "9px 0", borderBottom: `1px solid ${t.border}` }}>
+                  <span style={{ fontSize: 12, color: t.textSub }}>{r}회차</span>
+                  <span style={{ fontSize: 11, color: t.textFaint, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>₩{fmt(perRound)}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: t.text, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>₩{fmt(actual)}</span>
+                  <span style={{ fontSize: 11, color: diff >= 0 ? t.up : t.down, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {diff >= 0 ? "+" : "−"}{fmt(Math.abs(diff))}
                   </span>
                 </div>
               );
             })}
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, padding: "6px 0" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 84px", gap: 6, marginTop: 8, padding: "8px 0 2px" }}>
               <span style={{ fontSize: 11, color: t.textFaint }}>합계</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>₩{fmt(dca.reduce((s,d) => s + Number(d.amount), 0))}</span>
+              <span></span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.text, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                ₩{fmt(dcaSplit.reduce((s,d) => s + Number(d.amount), 0))}
+              </span>
+              <span></span>
             </div>
+            {dcaContrib.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6, paddingTop: 8, borderTop: `1px solid ${t.border}`, marginTop: 4 }}>
+                <span style={{ fontSize: 11, color: "#10B981" }}>기여금 매수 (회차 외)</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: t.text, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  ₩{fmt(dcaContrib.reduce((s,d) => s + Number(d.amount), 0))}
+                </span>
+              </div>
+            )}
           </div>
         );
       })()}
@@ -1278,11 +1401,18 @@ function DCA({ t, data, apiUrl, runAction }) {
         </div>
       )}
 
-      {[...dca].sort((a, b) => Number(b.round) - Number(a.round)).map(d => (
+      {[...dcaAll].sort((a, b) => String(b.date).localeCompare(String(a.date))).map(d => (
         <div key={d._row} style={{ background: t.card, borderRadius: 10, padding: 12, marginBottom: 8, border: `1px solid ${t.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 11, color: "#60A5FA", fontWeight: 700 }}>{d.round}회차 · {fmtDate(d.date)}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {isContribBuy(d) ? (
+                  <span style={{ fontSize: 9, color: "#10B981", background: t.inputBg, padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>기여금</span>
+                ) : (
+                  <span style={{ fontSize: 11, color: "#60A5FA", fontWeight: 700 }}>{d.round}회차</span>
+                )}
+                <span style={{ fontSize: 11, color: t.textFaint }}>{fmtDate(d.date)}</span>
+              </div>
               <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2, color: t.text }}>{d.name}</div>
             </div>
             <div style={{ textAlign: "right" }}>
