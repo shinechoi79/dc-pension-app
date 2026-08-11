@@ -448,9 +448,14 @@ function App() {
   }, [apiUrl]);
 
   // 최초 진입: 캐시 즉시 표시 → 백그라운드 갱신
+  // (캐시가 10분 이상 오래되면 로딩 표시를 하면서 갱신)
+  const bootedRef = useRef(false);
   useEffect(() => {
-    if (!apiUrl) return;
-    let hadCache = false;
+    if (!apiUrl || bootedRef.current) return;
+    bootedRef.current = true;
+
+    const CACHE_TTL = 10 * 60 * 1000; // 10분
+    let fresh = false;
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (raw) {
@@ -458,11 +463,13 @@ function App() {
         if (cached && cached.data) {
           setData(cached.data);
           setLastSync(new Date(cached.at));
-          hadCache = true;
+          fresh = (Date.now() - Number(cached.at)) < CACHE_TTL;
         }
       }
     } catch(_) {}
-    loadAll({ silent: hadCache });
+
+    // 캐시가 신선하면 조용히, 오래됐거나 없으면 로딩 표시하며 갱신
+    loadAll({ silent: fresh });
   }, [apiUrl, loadAll]);
 
   const saveApiUrl = (url) => {
