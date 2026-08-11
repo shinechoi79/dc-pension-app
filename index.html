@@ -847,9 +847,13 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
             const last = histChart[histChart.length - 1].value;
             const chg = last - first;
             const chgPct = first > 0 ? (chg / first) * 100 : 0;
+            const days = histChart.length;
             return (
-              <span style={{ fontSize: 11, color: chg >= 0 ? t.up : t.down, fontWeight: 700 }}>
-                {chg >= 0 ? "▲" : "▼"} ₩{fmt(Math.abs(chg))} ({pct(chgPct)})
+              <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                <span style={{ fontSize: 10, color: t.textFaint }}>{days}일간</span>
+                <span style={{ fontSize: 11, color: chg >= 0 ? t.up : t.down, fontWeight: 700 }}>
+                  {chg >= 0 ? "▲" : "▼"} ₩{fmt(Math.abs(chg))} ({pct(chgPct)})
+                </span>
               </span>
             );
           })()}
@@ -894,7 +898,7 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
                   <Stat t={t} label="현재 평가액" value={`₩${fmtM(last.value)}`} />
                   <Stat t={t} label="투자 원금" value={`₩${fmtM(last.cost)}`} />
-                  <Stat t={t} label="평가손익" value={`${gain >= 0 ? "+" : "-"}₩${fmtM(Math.abs(gain))} (${pct(gainPct)})`} color={gain >= 0 ? t.up : t.down} />
+                  <Stat t={t} label="원금 대비 손익" value={`${gain >= 0 ? "+" : "-"}₩${fmtM(Math.abs(gain))} (${pct(gainPct)})`} color={gain >= 0 ? t.up : t.down} />
                 </div>
               );
             })()}
