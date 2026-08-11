@@ -752,6 +752,7 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
   const { summary, portfolio, config } = data;
   // 계좌 구분 색 (테마 대응) — 아래 계산들보다 먼저 선언되어야 함
   const AC = ACCT_COLORS[theme === "dark" ? "dark" : "light"];
+  const [histFilter, setHistFilter] = useState("total");
   const totalReturn = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
   const totalDividend = Number(summary.total_dividend) || 0;
   const dcaDone = Number(summary.dca_done) || 0;
@@ -759,9 +760,18 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
 
   // 자산 추이 (ASSET_HISTORY 기반)
   const history = data?.history || [];
+  // 추이 필터 (전체 / DC / 연금저축 / IRP)
+  const HIST_KEYS = {
+    total:   { label: "전체",     ev: "total_eval",  cost: "total_cost",  color: AC.dc },
+    dc:      { label: "DC",       ev: "dc_eval",     cost: "dc_cost",     color: AC.dc },
+    savings: { label: "연금저축", ev: "saving_eval", cost: "saving_cost", color: AC.saving },
+    irp:     { label: "IRP",      ev: "irp_eval",    cost: "irp_cost",    color: AC.irp },
+  };
+  const hk = HIST_KEYS[histFilter] || HIST_KEYS.total;
   const histChart = history.map(h => ({
     month: fmtDate(h.date).slice(5).replace("-", "/"),  // MM/DD
-    value: Math.round(Number(h.total_eval) || 0),
+    value: Math.round(Number(h[hk.ev]) || 0),
+    cost: Math.round(Number(h[hk.cost]) || 0),
   }));
 
   // 3계좌 전체 종목 통합 자산배분
@@ -830,8 +840,8 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
 
       {/* ── 자산 추이 (히스토리) ─────────────────────────────── */}
       <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 13, color: t.textSub, fontWeight: 600 }}>전체 자산 추이</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontSize: 13, color: t.textSub, fontWeight: 600 }}>자산 추이</span>
           {histChart.length > 1 && (() => {
             const first = histChart[0].value;
             const last = histChart[histChart.length - 1].value;
@@ -843,6 +853,23 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
               </span>
             );
           })()}
+        </div>
+
+        {/* 계좌 필터 */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+          {Object.entries(HIST_KEYS).map(([key, v]) => {
+            const on = histFilter === key;
+            return (
+              <button key={key} onClick={() => setHistFilter(key)}
+                style={{
+                  flex: 1, padding: "5px 0", borderRadius: 6, cursor: "pointer",
+                  border: `1px solid ${on ? "transparent" : t.border}`,
+                  background: on ? t.textSub : "transparent",
+                  color: on ? t.card : t.textMuted,
+                  fontSize: 11, fontWeight: on ? 600 : 400,
+                }}>{v.label}</button>
+            );
+          })}
         </div>
         {histChart.length < 2 ? (
           <div style={{ padding: "24px 12px", textAlign: "center" }}>
@@ -858,8 +885,20 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
           </div>
         ) : (
           <>
-            <SimpleAreaChart data={histChart} dataKey="value" color="#10B981" height={150} formatY={v => `₩${fmt(v)}`} t={t} />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: t.textFaint }}>
+            <SimpleAreaChart data={histChart} dataKey="value" color={hk.color} height={150} formatY={v => `₩${fmt(v)}`} t={t} />
+            {(() => {
+              const last = histChart[histChart.length - 1];
+              const gain = last.value - last.cost;
+              const gainPct = last.cost > 0 ? (gain / last.cost) * 100 : 0;
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
+                  <Stat t={t} label="현재 평가액" value={`₩${fmtM(last.value)}`} />
+                  <Stat t={t} label="투자 원금" value={`₩${fmtM(last.cost)}`} />
+                  <Stat t={t} label="평가손익" value={`${gain >= 0 ? "+" : "-"}₩${fmtM(Math.abs(gain))} (${pct(gainPct)})`} color={gain >= 0 ? t.up : t.down} />
+                </div>
+              );
+            })()}
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 10, color: t.textFaint }}>
               <span>{histChart.length}일치 기록</span>
               <span>최저 ₩{fmtM(Math.min(...histChart.map(h => h.value)))} · 최고 ₩{fmtM(Math.max(...histChart.map(h => h.value)))}</span>
             </div>
