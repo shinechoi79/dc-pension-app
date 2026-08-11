@@ -221,6 +221,7 @@ function SimpleDonut({ data, colors, size = 120 }) {
 // ════════════════════════════════════════════════════════════════
 const API_URL_KEY = "dc_api_url";
 const CACHE_KEY = "dc_data_cache";
+const CASH_LOG_KEY = "dc_cash_log";
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbw6U-yGtzzjqkK0hvk0qlyxpn0Rz9n3yBmOcgH822-zvZsSgCmmpB5a7yymOBxLI7Fe/exec";
 const THEME_KEY = "dc_theme";
 
@@ -759,13 +760,33 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
   const [cashEditing, setCashEditing] = useState(false);
   const [cashValue, setCashValue] = useState("");
   const [cashSaving, setCashSaving] = useState(false);
+  // 직전 갱신 기록 (localStorage): { value, at }
+  const [cashPrev, setCashPrev] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CASH_LOG_KEY) || "null"); } catch(_) { return null; }
+  });
   const saveCash = async () => {
     if (!cashValue || !cashRow) return;
+    const newVal = Number(cashValue);
+    const oldVal = Number(cashRow.units) || 0;
     setCashSaving(true);
-    await runAction("updateHoldings", { ticker: "CASH", units: Number(cashValue), avg_cost: 1 }, "현금 잔액 갱신됨");
+    await runAction("updateHoldings", { ticker: "CASH", units: newVal, avg_cost: 1 }, "현금 잔액 갱신됨");
+    // 갱신 시점 기록 (다음 갱신 때 변동 계산용)
+    const log = { value: oldVal, at: Date.now() };
+    try { localStorage.setItem(CASH_LOG_KEY, JSON.stringify(log)); } catch(_) {}
+    setCashPrev(log);
     setCashSaving(false);
     setCashEditing(false);
   };
+
+  // 직전 갱신 대비 변동 계산
+  const cashDelta = (() => {
+    if (!cashRow || !cashPrev) return null;
+    const cur = Number(cashRow.units) || 0;
+    const diff = cur - Number(cashPrev.value);
+    const days = Math.max(1, Math.round((Date.now() - Number(cashPrev.at)) / 86400000));
+    if (diff === 0) return null;
+    return { diff, days, perDay: Math.round(diff / days) };
+  })();
 
   // 다음 매수 안내 (마지막 분할매수 이후 경과일)
   const dcaRows = (data.dca || []).filter(d => String(d.source || "").trim() !== "기여금매수");
@@ -895,9 +916,18 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: cashEditing ? 12 : 0 }}>
             <div>
               <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600 }}>{cashRow.name}</div>
-              <div style={{ fontSize: 10, color: t.textFaint, marginTop: 3 }}>
-                매일 이자가 붙으므로 주기적으로 갱신해주세요
-              </div>
+              {cashDelta ? (
+                <div style={{ fontSize: 10, marginTop: 3 }}>
+                  <span style={{ color: cashDelta.diff >= 0 ? t.up : t.down, fontWeight: 600 }}>
+                    {cashDelta.days}일 전 대비 {cashDelta.diff >= 0 ? "+" : "−"}₩{fmt(Math.abs(cashDelta.diff))}
+                  </span>
+                  <span style={{ color: t.textFaint }}> · 일평균 {cashDelta.perDay >= 0 ? "+" : "−"}₩{fmt(Math.abs(cashDelta.perDay))}</span>
+                </div>
+              ) : (
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 3 }}>
+                  매일 이자가 붙으므로 주기적으로 갱신해주세요
+                </div>
+              )}
             </div>
             {!cashEditing && (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
