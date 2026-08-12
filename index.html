@@ -431,11 +431,37 @@ function App() {
       try {
         all = await jsonpGet(apiUrl, "bootstrap");
       } catch (e) {
-        // bootstrap 미지원(구버전 API) 시 기존 방식으로 폴백
-        all = await jsonpGet(apiUrl, "all");
-        try { all.pension = await jsonpGet(apiUrl, "pension"); } catch(_) { all.pension = null; }
-        try { all.history = await jsonpGet(apiUrl, "history"); } catch(_) { all.history = []; }
+        // bootstrap 실패 시 폴백: 3개를 병렬로 호출 (순차 대기 제거)
+        const [rAll, rPension, rHistory] = await Promise.allSettled([
+          jsonpGet(apiUrl, "all"),
+          jsonpGet(apiUrl, "pension"),
+          jsonpGet(apiUrl, "history"),
+        ]);
+        if (rAll.status !== "fulfilled") throw rAll.reason || e;
+        all = rAll.value;
+        all.pension = rPension.status === "fulfilled" ? rPension.value : null;
+        all.history = rHistory.status === "fulfilled" ? rHistory.value : [];
       }
+
+      // 연금 데이터가 비었는데 캐시에 있으면 캐시 값을 유지 (부분 유실 방지)
+      if (!all.pension || !(all.pension.accounts || []).length) {
+        try {
+          const raw = localStorage.getItem(CACHE_KEY);
+          const cached = raw ? JSON.parse(raw) : null;
+          if (cached?.data?.pension?.accounts?.length) {
+            all.pension = cached.data.pension;
+            all._pensionFromCache = true;
+          }
+        } catch(_) {}
+      }
+      if (!(all.history || []).length) {
+        try {
+          const raw = localStorage.getItem(CACHE_KEY);
+          const cached = raw ? JSON.parse(raw) : null;
+          if (cached?.data?.history?.length) all.history = cached.data.history;
+        } catch(_) {}
+      }
+
       setData(all);
       setLastSync(new Date());
       try {
@@ -917,6 +943,11 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
           );
         })}
 
+        {accountBreakdown.length < 3 && (
+          <div style={{ marginTop: 10, padding: "8px 10px", background: t.inputBg, borderRadius: 8, fontSize: 10, color: t.textMuted, textAlign: "center" }}>
+            연금저축·IRP 정보를 불러오지 못했어요 · 새로고침을 눌러주세요
+          </div>
+        )}
         <div style={{ fontSize: 10, color: t.textFaint, marginTop: 10, textAlign: "center" }}>
           계좌를 탭하면 상세 화면으로 이동합니다
         </div>
@@ -925,29 +956,32 @@ function Dashboard({ t, theme, data, totalValue, totalCost, savingsEval = 0, irp
       {/* ── 현금성 자산 (이자 반영용 빠른 수정) ─────────────────── */}
       {cashRow && (
         <div style={{ background: t.card, borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${t.border}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: cashEditing ? 12 : 0 }}>
-            <div>
-              <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600 }}>{cashRow.name}</div>
-              {cashDelta ? (
-                <div style={{ fontSize: 10, marginTop: 3 }}>
-                  <span style={{ color: cashDelta.diff >= 0 ? t.up : t.down, fontWeight: 600 }}>
-                    {cashDelta.days}일 전 대비 {cashDelta.diff >= 0 ? "+" : "−"}₩{fmt(Math.abs(cashDelta.diff))}
-                  </span>
-                  <span style={{ color: t.textFaint }}> · 일평균 {cashDelta.perDay >= 0 ? "+" : "−"}₩{fmt(Math.abs(cashDelta.perDay))}</span>
-                </div>
-              ) : (
-                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 3 }}>
-                  매일 이자가 붙으므로 주기적으로 갱신해주세요
-                </div>
+          <div style={{ marginBottom: cashEditing ? 12 : 0 }}>
+            {/* 1행: 이름 + 수정 버튼 */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: t.textSub, fontWeight: 600 }}>{cashRow.name}</span>
+              {!cashEditing && (
+                <button onClick={() => { setCashEditing(true); setCashValue(String(Math.round(Number(cashRow.units) || 0))); }}
+                  style={{ ...btnStyle(t.border), padding: "5px 12px", fontSize: 11, color: t.text, whiteSpace: "nowrap" }}>수정</button>
               )}
             </div>
+            {/* 2행: 금액 */}
             {!cashEditing && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums" }}>
-                  ₩{fmt(cashRow.eval_amount)}
+              <div style={{ fontSize: 20, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums", marginTop: 6 }}>
+                ₩{fmt(cashRow.eval_amount)}
+              </div>
+            )}
+            {/* 3행: 변동 or 안내 */}
+            {cashDelta ? (
+              <div style={{ fontSize: 10, marginTop: 4 }}>
+                <span style={{ color: cashDelta.diff >= 0 ? t.up : t.down, fontWeight: 600 }}>
+                  {cashDelta.days}일 전 대비 {cashDelta.diff >= 0 ? "+" : "−"}₩{fmt(Math.abs(cashDelta.diff))}
                 </span>
-                <button onClick={() => { setCashEditing(true); setCashValue(String(Math.round(Number(cashRow.units) || 0))); }}
-                  style={{ ...btnStyle(t.border), padding: "5px 12px", fontSize: 11, color: t.text }}>수정</button>
+                <span style={{ color: t.textFaint }}> · 일평균 {cashDelta.perDay >= 0 ? "+" : "−"}₩{fmt(Math.abs(cashDelta.perDay))}</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 10, color: t.textFaint, marginTop: 4 }}>
+                매일 이자가 붙으므로 주기적으로 갱신해주세요
               </div>
             )}
           </div>
