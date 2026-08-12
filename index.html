@@ -249,7 +249,7 @@ function jsonpGet(url, action, params = {}) {
 
     document.body.appendChild(script);
     setTimeout(() => {
-      if (window[cbName]) { cleanup(); reject(new Error("요청 시간 초과 (10초)")); }
+      if (window[cbName]) { cleanup(); reject(new Error("요청 시간 초과 (25초)")); }
     }, 25000);
   });
 }
@@ -571,12 +571,24 @@ function App() {
         );
       })()}
 
-      {/* 에러 배너 */}
+      {/* 에러 배너 — 캐시가 있으면 톤 다운, 없으면 강조 */}
       {error && (
-        <div style={{ margin: 16, padding: "12px 14px", background: "#450A0A", borderRadius: 10, fontSize: 12, color: "#F87171" }}>
-          ⚠️ 데이터 로딩 실패: {error}
-          <button onClick={loadAll} style={{ ...btnStyle("#7F1D1D"), marginLeft: 10, padding: "4px 10px" }}>재시도</button>
-        </div>
+        data ? (
+          <div style={{ margin: "12px 16px 0", padding: "10px 14px", background: t.inputBg, borderRadius: 10, border: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 11, color: t.textSub, fontWeight: 600 }}>최신 데이터를 불러오지 못했어요</div>
+              <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>
+                마지막으로 받은 정보를 표시 중입니다
+              </div>
+            </div>
+            <button onClick={() => loadAll()} style={{ ...btnStyle(t.border), padding: "5px 12px", fontSize: 11, color: t.text }}>다시 시도</button>
+          </div>
+        ) : (
+          <div style={{ margin: 16, padding: "12px 14px", background: t.downBg, borderRadius: 10, fontSize: 12, color: t.down, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>데이터를 불러오지 못했어요: {error}</span>
+            <button onClick={() => loadAll()} style={{ ...btnStyle(t.down), padding: "4px 10px", fontSize: 11 }}>재시도</button>
+          </div>
+        )
       )}
 
       {/* 로딩 (캐시가 없는 최초 진입에만 표시) */}
