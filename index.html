@@ -285,19 +285,32 @@ const fmtM = (n) => {
   return `${sign}${new Intl.NumberFormat("ko-KR").format(abs)}`;
 };
 const pct = (n) => `${Number(n) >= 0 ? "+" : ""}${Number(n || 0).toFixed(2)}%`;
+// ── 날짜 처리: 항상 한국 시간(KST) 기준 ─────────────────────────
+// 시트의 날짜 셀은 Apps Script를 거치면 UTC ISO 문자열로 옵니다.
+// 예) 시트의 2026-10-02(KST 0시) → "2026-10-01T15:00:00.000Z"
+// 앞 10글자만 자르면 하루 전 날짜가 되므로, 9시간을 더해 KST 날짜로 바꿉니다.
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const toKstYmd = (dt) => new Date(dt.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
+const pad2 = (n) => String(n).padStart(2, "0");
 const fmtDate = (d) => {
   if (!d) return "-";
   const s = String(d);
-  // ISO 포맷 (2026-08-03T15:00:00.000Z) → 2026-08-03
-  if (s.includes("T")) return s.slice(0, 10);
-  // Date 객체
+  if (s.includes("T")) {
+    // 시간대 표시(Z 또는 +09:00)가 붙은 ISO 문자열 → KST 날짜로 변환
+    if (/(Z|[+-]\d{2}:?\d{2})$/.test(s)) {
+      const dt = new Date(s);
+      if (!isNaN(dt)) return toKstYmd(dt);
+    }
+    return s.slice(0, 10);
+  }
+  // 2026/10/02 형태 → 적힌 날짜 그대로
   if (s.includes("/")) {
     const dt = new Date(d);
-    if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
+    if (!isNaN(dt)) return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
   }
   return s.slice(0, 10);
 };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => toKstYmd(new Date());
 // 도넛/그래프용 색: 계좌 그룹 내 명도 단계
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#94A3B8"];
 // DC 종목용 남색 계열 명도 단계 (라이트/다크 공통 사용 가능한 중간 톤)
@@ -2308,10 +2321,12 @@ function Simulator({ t, data, totalValue, apiUrl, runAction, showToast }) {
   const years = Math.max(1, targetAge - currentAge);
   const clampedYears = Math.min(years, 10);
 
+  // 보수적/적극적은 중립(슬라이더) 기준 ±3%p로 연동 (기존: 3% / 8% 고정이라 중립과 겹치거나 역전되던 문제 수정)
+  const SCENARIO_SPREAD = 3;
   const scenarios = [
-    { label: "보수적", rate: 3, color: "#60A5FA" },
+    { label: "보수적", rate: Math.max(0, expectedReturn - SCENARIO_SPREAD), color: "#60A5FA" },
     { label: "중립", rate: expectedReturn, color: "#34D399" },
-    { label: "적극적", rate: 8, color: "#F59E0B" },
+    { label: "적극적", rate: expectedReturn + SCENARIO_SPREAD, color: "#F59E0B" },
   ];
 
   const calcFV = (rate) => totalValue * Math.pow(1 + rate / 100, clampedYears);
