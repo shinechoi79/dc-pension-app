@@ -1277,7 +1277,9 @@ function DCA({ t, data, apiUrl, runAction }) {
   const done = Number(summary.dca_done) || 0;  // DC_SUMMARY의 고유 회차 수 기준
   const remaining = totalDCA - done;
   const perRound = Number(summary.dca_per_round_amount) || 0;
-  const usedAmount = Number(summary.dca_used_amount) || 0;
+  // 누적 집행액: DC_DCA 분할매수 기록을 직접 합산 (시트 dca_used_amount 수식에 의존하지 않음)
+  const usedAmountCalc = dcaSplit.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const usedAmount = dcaSplit.length > 0 ? usedAmountCalc : (Number(summary.dca_used_amount) || 0);
   const totalAmount = Number(summary.dca_total) ? (perRound * totalDCA) : 0;
 
   const realProducts = (data.portfolio || []).filter(p => p.is_parking !== true && p.is_parking !== "TRUE");
@@ -1407,7 +1409,8 @@ function DCA({ t, data, apiUrl, runAction }) {
 
   const barData = Array.from({ length: totalDCA }, (_, i) => ({
     round: `${i + 1}`,
-    done: dca.find(d => Number(d.round) === i + 1) ? Number(dca.find(d => Number(d.round) === i + 1).amount) : 0,
+    // 회차 내 전 종목 합계 (기존: 첫 번째 종목 금액만 표시되던 문제 수정)
+    done: dca.filter(d => Number(d.round) === i + 1).reduce((s, d) => s + (Number(d.amount) || 0), 0),
     plan: perRound,
   }));
 
@@ -1424,7 +1427,8 @@ function DCA({ t, data, apiUrl, runAction }) {
           <div style={{ height: "100%", width: `${(done / totalDCA) * 100}%`, background: t.textSub, borderRadius: 4, transition: "width 0.5s" }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-          <span style={{ fontSize: 10, color: t.textFaint }}>집행 ₩{fmt(usedAmount)}</span>
+          <span style={{ fontSize: 10, color: t.textFaint }}>누적 집행 ₩{fmt(usedAmount)}</span>
+          {totalAmount > 0 && <span style={{ fontSize: 10, color: t.textFaint }}>계획 ₩{fmt(totalAmount)}</span>}
         </div>
       </div>
 
